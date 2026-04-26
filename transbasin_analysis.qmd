@@ -1,0 +1,33 @@
+---
+title: "transbasin"
+format: html
+editor: visual
+---
+
+```{r}
+
+
+pacman::p_load(
+  tidyverse,
+  dataRetrieval,
+  httr,
+  jsonlite,
+  DBI,
+  RSQLite,
+  httr2
+)
+
+cdss_token <- readLines("data/cdss_apikey.txt")
+```
+
+```{r}
+source("scripts/fetch_telemetry.R")
+```
+
+```{r}
+test <- fetch_yesterday("0404634")
+
+wdids <- c("0404634", "7600600")
+
+test_2 <- fetch_yesterday_many(wdids = wdids)
+```

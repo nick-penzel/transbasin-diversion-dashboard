@@ -1,0 +1,11 @@
+project: 
+  type: website
+  output-dir: docs
+  render: 
+    - "*.qmd"
+website: 
+  title: "ESS 523c"
+author:
+  - name: Nick Penzel
+    email: n.penzel@colostate.edu
+    
