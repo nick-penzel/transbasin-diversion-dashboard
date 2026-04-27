@@ -16,7 +16,7 @@ library(purrr)
 
 API_BASE     <- "https://dwr.state.co.us/Rest/GET/api/v2"
 USER_AGENT   <- "CO-Water-Dashboard/0.1"
-API_KEY_FILE <- "data/cdss_apikey.txt" 
+API_KEY_FILE <- "data/cdss_apikey.txt"
 
 
 #' Read the API key from a text file. Returns "" if the file is missing.
@@ -90,7 +90,11 @@ fetch_yesterday <- function(wdid, target_date = Sys.Date() - 1) {
   abbrev  <- station$abbrev
   if (is.null(abbrev)) return(NULL)
 
-  rows <- get_daily_discharge(abbrev, target_date, target_date)
+  # Stations report under different parameter codes (DISCHRG, DISCHRG2, DISCHRG3).
+  # Use what the station tells us; fall back to DISCHRG if the field is missing.
+  parameter <- station$parameter %||% "DISCHRG"
+
+  rows <- get_daily_discharge(abbrev, target_date, target_date, parameter = parameter)
 
   if (length(rows) == 0) {
     return(tibble(
@@ -98,8 +102,13 @@ fetch_yesterday <- function(wdid, target_date = Sys.Date() - 1) {
       abbrev           = abbrev,
       station_name     = station$stationName %||% NA_character_,
       date             = target_date,
+      meas_date        = as.Date(NA),
+      parameter        = parameter,
       discharge_cfs    = NA_real_,
       units            = NA_character_,
+      flag_a           = NA_character_,
+      flag_b           = NA_character_,
+      meas_count       = NA_integer_,
       modified         = NA_character_,
       n_stations_found = length(stations),
       note             = "telemetry station exists but no data for this date"
@@ -113,6 +122,7 @@ fetch_yesterday <- function(wdid, target_date = Sys.Date() - 1) {
     station_name     = station$stationName %||% NA_character_,
     date             = target_date,
     meas_date        = as.Date(substr(row$measDate %||% "", 1, 10)),
+    parameter        = parameter,
     discharge_cfs    = as.numeric(row$measValue %||% NA),
     units            = row$measUnit %||% "cfs",
     flag_a           = row$flagA %||% NA_character_,
