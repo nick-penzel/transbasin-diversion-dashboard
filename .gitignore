@@ -3,5 +3,6 @@
 .RData
 .Ruserdata
 data/
+nisp.qmd
 /.quarto/
 **/*.quarto_ipynb
