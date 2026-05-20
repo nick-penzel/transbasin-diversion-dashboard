@@ -1,0 +1,67 @@
+name: Backfill historical data
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_year:
+        description: 'First year to fetch (inclusive)'
+        required: true
+        default: '1985'
+        type: string
+      end_year:
+        description: 'Last year to fetch (inclusive). Leave blank for current year.'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # required for piggyback to create/update releases
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install R dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::httr2
+            any::dplyr
+            any::tidyr
+            any::tibble
+            any::purrr
+            any::lubridate
+            any::readr
+            any::arrow
+            any::piggyback
+
+      - name: Write API key file
+        # CDSS API key from repo secret -> file the scripts expect
+        run: echo "$CDSS_API_KEY" > scripts/api_key.txt
+        env:
+          CDSS_API_KEY: ${{ secrets.CDSS_API_KEY }}
+
+      - name: Run backfill
+        env:
+          BACKFILL_START_YEAR: ${{ inputs.start_year }}
+          BACKFILL_END_YEAR:   ${{ inputs.end_year }}
+          GITHUB_TOKEN:        ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY:   ${{ github.repository }}
+        run: Rscript scripts/backfill_history.R
+
+      - name: Upload log as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backfill-log
+          path: scripts/backfill.log
+          if-no-files-found: warn

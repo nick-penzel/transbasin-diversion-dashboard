@@ -17,7 +17,7 @@ library(lubridate)
 
 API_BASE     <- "https://dwr.state.co.us/Rest/GET/api/v2"
 USER_AGENT   <- "CO-Water-Dashboard/0.1"
-API_KEY_FILE <- "api_key.txt"
+API_KEY_FILE <- "cdss_apikey.txt"
 PAGE_SIZE    <- 50000
 
 
@@ -164,4 +164,5 @@ if (sys.nframe() == 0) {
   }
   print(out)
 }
+
 
