@@ -52,7 +52,6 @@ fetch_monthly <- function(wdid, start_year, end_year = year(Sys.Date())) {
     arrange(month_start)
 }
 
-
 fetch_monthly_many <- function(wdids, start_year, end_year = year(Sys.Date())) {
   bind_rows(lapply(seq_along(wdids), function(i) {
     message(sprintf("[%d/%d] %s", i, length(wdids), wdids[i]))
