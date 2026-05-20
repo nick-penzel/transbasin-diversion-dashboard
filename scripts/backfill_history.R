@@ -44,6 +44,9 @@ tryCatch(
   error = function(e) message("Release already exists, continuing")
 )
 
+# Force piggyback to refresh its cached release 
+pb_releases(repo = repo, verbose = FALSE)
+
 # Upload to Release
 pb_upload(
   c("data/historical_monthly.parquet", "data/monthly_normals.parquet"),
