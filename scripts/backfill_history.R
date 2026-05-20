@@ -16,7 +16,6 @@ structures <- read_csv("data/structures.csv", show_col_types = FALSE)
 
 # Fetch
 history <- fetch_monthly_many(structures$wdid, start_year, end_year)
-
 history <- history |>
   left_join(structures |> select(wdid, name, source_basin, is_transbasin),
             by = "wdid")
@@ -37,6 +36,13 @@ normals <- history |>
 # Write Parquet
 write_parquet(history, "data/historical_monthly.parquet")
 write_parquet(normals, "data/monthly_normals.parquet")
+
+# Create release if it doesn't exist (safe to call when it does)
+tryCatch(
+  pb_release_create(repo = repo, tag = "historical-data",
+                    name = "Historical monthly data"),
+  error = function(e) message("Release already exists, continuing")
+)
 
 # Upload to Release
 pb_upload(
