@@ -57,6 +57,12 @@ fetch_monthly_many <- function(wdids, start_year, end_year = year(Sys.Date())) {
   bind_rows(lapply(seq_along(wdids), function(i) {
     message(sprintf("[%d/%d] %s", i, length(wdids), wdids[i]))
     Sys.sleep(0.3)
-    fetch_monthly(wdids[i], start_year, end_year)
+    tryCatch(
+      fetch_monthly(wdids[i], start_year, end_year),
+      error = function(e) {
+        message(sprintf("  -> FAILED: %s", conditionMessage(e)))
+        NULL
+      }
+    )
   }))
 }
