@@ -15,8 +15,7 @@ repo       <- Sys.getenv("GITHUB_REPOSITORY", "nickpenzel/transbasin_div")
 structures <- read_csv("data/structures.csv", show_col_types = FALSE)
 
 # Fetch
-history <- fetch_monthly_many(structures$wdid_telem, start_year, end_year) %>% 
-  rename(wdid = wdid_telem)
+history <- fetch_monthly_many(structures$wdid, start_year, end_year)
 
 history <- history |>
   left_join(structures |> select(wdid, name, source_basin, is_transbasin),

@@ -1,54 +1,54 @@
-﻿wdid_pod,wdid_telem,wdid_release,name,source_basin,destination_basin,is_transbasin,other_names,notes,,,,,,,,,
-4800572,7600572,,Sand Creek Ditch ,North Platte,North Platte,no,Deadman Ditch,,,,,,,,,,
-4800573,0304606,,Bob Creek Ditch,North Platte,South Platte,no,,,,,,,,,,,
-4800576,4800576,0304600,Laramie-Poudre Tunnel,North Platte,South Platte,no,,,,,,,,,,,
-4800577,4800578,0304605,Skyline Ditch,North Platte,South Platte,no,Laramie River Ditch,"no records past 2022, structure listed as not usable in 2021",,,,,,,,,
-4704602,0304602,,Cameron Pass Ditch,North Platte,South Platte,no,,,,,,,,,,,
-4704603,0304603,,Michigan Ditch,North Platte,South Platte,no,,"at cameron pass, has another assocaited wdid with telemetry ",,,,,,,,,
-7600600,7600600,0304604,Wilson Supply Ditch,North Platte,South Platte,no,,need to verify primary wdid,,,,,,,,,
-5104601,0304601,,Grand River Ditch,Colorado,South Platte,yes,,,,,,,,,,,
-0514634,0404634,,Alva B. Adams Tunnel,Colorado,South Platte,yes,Adams Tunnel,,,,,,,,,,
-5104655,0604655,,Moffat Tunnel,Colorado,South Platte,yes,,,,,,,,,,,
-5104625,0704625,,Berthoud Pass Ditch,Colorado,South Platte,yes,Berthoud Canal and Reservoir Tunnnel,,,,,,,,,,
-5104603,0704650,,Jones Pass Tunnel,Colorado,South Platte,yes,August P. Gumlick Tunnel,POD is called Williams Fork Tunnel,,,,,,,,,
-3604658,0704682,,Straight Creek Tunnel,Colorado,South Platte,yes,,,,,,,,,,,
-3604626,3604626,0704626,Vidler Tunnel,Colorado,South Platte,yes,,,,,,,,,,,
-3604684,8000653,,Harold D. Roberts Tunnel,Colorado,South Platte,yes,,need to find wdid,,,,,,,,,
-3604685,2304611,,Boreas Pass Ditch,Colorado,South Platte,yes,Boreas No 2 Ditch,,,,,,,,,,
-3604699,2304612,,Continental-Hoosier Tunnel,Colorado,South Platte,yes,Con-Hoosier Tunnel,verify the tele station is correct,,,,,,,,,
-,,,Woodland Park Pipeline,Arkansas,South Platte,yes,,cannot find wdid,,,,,,,,,
-1100529,2304490,0804490,Homestake Joint Pipeline,Arkansas,South Platte,yes,,"need to verify, listed gage is into spiney",,,,,,,,,
-3704641,1104616,,Columbine Ditch,Colorado,Arkansas,yes,,,,,,,,,,,
-3704642,1100500,,Ewing Ditch,Colorado,Arkansas,yes,,,,,,,,,,,
-3704648,1100501,,Wurts Ditch,Colorado,Arkansas,yes,Warren E Wurts Ditch,also a station ,,,,,,,,,
-3704614,1104613,,Homestake Tunnel,Colorado,Arkansas,yes,,,,,,,,,,,
-3804613,1104612,,Busk-Ivanhoe Tunnel,Colorado,Arkansas,yes,,,,,,,,,,,
-3804625,1104615,,Boustead Tunnel,Colorado,Arkansas,yes,,,,,,,,,,,
-3804617,1104617,,Twin Lakes Tunnel,Colorado,Arkansas,yes,Independence Pass Transmountain Tunnel No 1,"grizzly creek to twin lakes, no telemetry",,,,,,,,,
-2804655,1104618,,Larkspur Ditch,Gunnison,Arkansas,yes,,,,,,,,,,,
-3500657,7900851,,Hudson Ditch,Rio Grande,Arkansas,yes,,,,,,,,,,,
-3500658,7900968,,Medano Ditch,Rio Grande,Arkansas,yes,,,,,,,,,,,
-2804656,2600702,,Tarbell Ditch,Gunnison,Rio Grande,yes,,,,,,,,,,,
-,2000920,,Tabor Ditch,Gunnison,Rio Grande,yes,,,,,,,,,,,
-3104637,2000922,,Weminuche Pass Ditch,San Juan,Rio Grande,yes,,,,,,,,,,,
-3104638,2000919,,Pine River Weminuche Pass Ditch,San Juan,Rio Grande,yes,,,,,,,,,,,
-7804672,2000923,,Williams Creek-Squaw Pass Ditch,San Juan,Rio Grande,yes,,,,,,,,,,,
-7804670,2000917,,Don La Font Ditch No. 1,San Juan,Rio Grande,yes,,,,,,,,,,,
-7804671,2000918,,Don La Font Ditch No. 2,San Juan,Rio Grande,yes,,,,,,,,,,,
-2904669,2000921,,Treasure Pass Ditch,San Juan,Rio Grande,yes,,,,,,,,,,,
-3307013,3300533,,Pine Ridge Ditch,San Juan,San Juan,no,Animas-La Plata Exchange,,,,,,,,,,
-3304666,3304666,3004666, Lightner Canal,San Juan,San Juan,no,,,,,,,,,,,
-3402001,3402001,,Sellars & McClane Supply Ditch,Dolores,San Juan,no,,no associated structures,,,,,,,,,
-7100619,7100618,,Turkey Creek Ditch,Dolores,San Juan,no,,,,,,,,,,,
-3204675,3204675,3200698,Dolores Tunnel,Dolores,San Juan,no,,,,,,,,,,,
-7104676,3200815,,Great Cut Dike,Dolores,San Juan,no,,need to make sure it lines up,,,,,,,,,
-3202006,3202006,,Dove Creek Pipeline,Dolores,San Juan,no,,,,,,,,,,,
-3004662,6804660,,Red Mountain Ditch,San Juan,Gunnison,no,,,,,,,,,,,
-3004661,6804659,6804659,Mineral Point Ditch,San Juan,Gunnison,no,,,,,,,,,,,
-6000669,6000669,,Leopard Creek Ditch,Dolores,Gunnison,no,,,,,,,,,,,
-6300593,6300593,,Gordon Granite Creek Ditch,Dolores,Gunnison,no,,,,,,,,,,,
-4200535,4200535,,Nellie S. Enlargement & Ext.,Dolores,Gunnison,no,,,,,,,,,,,
-5804630,5804630,,Dome Creek Ditch,Yampa,Colorado,no,,,,,,,,,,,
-5804686,5804686,,Stillwater Ditch,Yampa,Colorado,no,,,,,,,,,,,
-5804684,5804684,,Sarvis Ditch,Yampa,Colorado,no,,,,,,,,,,,
-,,,Climax Pipeline,Arkansas,Colorado,no,,,,,,,,,,,
+"wdid_pod","wdid","wdid_release","name","source_basin","destination_basin","is_transbasin","other_names","notes"
+"4800572","7600572",NA,"Sand Creek Ditch","North Platte","North Platte","no","Deadman Ditch",NA
+"4800573","0304606",NA,"Bob Creek Ditch","North Platte","South Platte","no",NA,NA
+"4800576","4800576","0304600","Laramie-Poudre Tunnel","North Platte","South Platte","no",NA,NA
+"4800577","4800578","0304605","Skyline Ditch","North Platte","South Platte","no","Laramie River Ditch","no records past 2022, structure listed as not usable in 2021"
+"4704602","0304602",NA,"Cameron Pass Ditch","North Platte","South Platte","no",NA,NA
+"4704603","0304603",NA,"Michigan Ditch","North Platte","South Platte","no",NA,"at cameron pass, has another assocaited wdid with telemetry"
+"7600600","7600600","0304604","Wilson Supply Ditch","North Platte","South Platte","no",NA,"need to verify primary wdid"
+"5104601","0304601",NA,"Grand River Ditch","Colorado","South Platte","yes",NA,NA
+"0514634","0404634",NA,"Alva B. Adams Tunnel","Colorado","South Platte","yes","Adams Tunnel",NA
+"5104655","0604655",NA,"Moffat Tunnel","Colorado","South Platte","yes",NA,NA
+"5104625","0704625",NA,"Berthoud Pass Ditch","Colorado","South Platte","yes","Berthoud Canal and Reservoir Tunnnel",NA
+"5104603","0704650",NA,"Jones Pass Tunnel","Colorado","South Platte","yes","August P. Gumlick Tunnel","POD is called Williams Fork Tunnel"
+"3604658","0704682",NA,"Straight Creek Tunnel","Colorado","South Platte","yes",NA,NA
+"3604626","3604626","0704626","Vidler Tunnel","Colorado","South Platte","yes",NA,NA
+"3604684","8000653",NA,"Harold D. Roberts Tunnel","Colorado","South Platte","yes",NA,"need to find wdid"
+"3604685","2304611",NA,"Boreas Pass Ditch","Colorado","South Platte","yes","Boreas No 2 Ditch",NA
+"3604699","2304612",NA,"Continental-Hoosier Tunnel","Colorado","South Platte","yes","Con-Hoosier Tunnel","verify the tele station is correct"
+NA,NA,NA,"Woodland Park Pipeline","Arkansas","South Platte","yes",NA,"cannot find wdid"
+"1100529","2304490","0804490","Homestake Joint Pipeline","Arkansas","South Platte","yes",NA,"need to verify, listed gage is into spiney"
+"3704641","1104616",NA,"Columbine Ditch","Colorado","Arkansas","yes",NA,NA
+"3704642","1100500",NA,"Ewing Ditch","Colorado","Arkansas","yes",NA,NA
+"3704648","1100501",NA,"Wurts Ditch","Colorado","Arkansas","yes","Warren E Wurts Ditch","also a station"
+"3704614","1104613",NA,"Homestake Tunnel","Colorado","Arkansas","yes",NA,NA
+"3804613","1104612",NA,"Busk-Ivanhoe Tunnel","Colorado","Arkansas","yes",NA,NA
+"3804625","1104615",NA,"Boustead Tunnel","Colorado","Arkansas","yes",NA,NA
+"3804617","1104617",NA,"Twin Lakes Tunnel","Colorado","Arkansas","yes","Independence Pass Transmountain Tunnel No 1","grizzly creek to twin lakes, no telemetry"
+"2804655","1104618",NA,"Larkspur Ditch","Gunnison","Arkansas","yes",NA,NA
+"3500657","7900851",NA,"Hudson Ditch","Rio Grande","Arkansas","yes",NA,NA
+"3500658","7900968",NA,"Medano Ditch","Rio Grande","Arkansas","yes",NA,NA
+"2804656","2600702",NA,"Tarbell Ditch","Gunnison","Rio Grande","yes",NA,NA
+NA,"2000920",NA,"Tabor Ditch","Gunnison","Rio Grande","yes",NA,NA
+"3104637","2000922",NA,"Weminuche Pass Ditch","San Juan","Rio Grande","yes",NA,NA
+"3104638","2000919",NA,"Pine River Weminuche Pass Ditch","San Juan","Rio Grande","yes",NA,NA
+"7804672","2000923",NA,"Williams Creek-Squaw Pass Ditch","San Juan","Rio Grande","yes",NA,NA
+"7804670","2000917",NA,"Don La Font Ditch No. 1","San Juan","Rio Grande","yes",NA,NA
+"7804671","2000918",NA,"Don La Font Ditch No. 2","San Juan","Rio Grande","yes",NA,NA
+"2904669","2000921",NA,"Treasure Pass Ditch","San Juan","Rio Grande","yes",NA,NA
+"3307013","3300533",NA,"Pine Ridge Ditch","San Juan","San Juan","no","Animas-La Plata Exchange",NA
+"3304666","3304666","3004666","Lightner Canal","San Juan","San Juan","no",NA,NA
+"3402001","3402001",NA,"Sellars & McClane Supply Ditch","Dolores","San Juan","no",NA,"no associated structures"
+"7100619","7100618",NA,"Turkey Creek Ditch","Dolores","San Juan","no",NA,NA
+"3204675","3204675","3200698","Dolores Tunnel","Dolores","San Juan","no",NA,NA
+"7104676","3200815",NA,"Great Cut Dike","Dolores","San Juan","no",NA,"need to make sure it lines up"
+"3202006","3202006",NA,"Dove Creek Pipeline","Dolores","San Juan","no",NA,NA
+"3004662","6804660",NA,"Red Mountain Ditch","San Juan","Gunnison","no",NA,NA
+"3004661","6804659","6804659","Mineral Point Ditch","San Juan","Gunnison","no",NA,NA
+"6000669","6000669",NA,"Leopard Creek Ditch","Dolores","Gunnison","no",NA,NA
+"6300593","6300593",NA,"Gordon Granite Creek Ditch","Dolores","Gunnison","no",NA,NA
+"4200535","4200535",NA,"Nellie S. Enlargement & Ext.","Dolores","Gunnison","no",NA,NA
+"5804630","5804630",NA,"Dome Creek Ditch","Yampa","Colorado","no",NA,NA
+"5804686","5804686",NA,"Stillwater Ditch","Yampa","Colorado","no",NA,NA
+"5804684","5804684",NA,"Sarvis Ditch","Yampa","Colorado","no",NA,NA
+NA,NA,NA,"Climax Pipeline","Arkansas","Colorado","no",NA,NA
