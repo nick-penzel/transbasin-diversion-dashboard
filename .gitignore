@@ -3,6 +3,7 @@
 .RData
 .Ruserdata
 data/cdss_apikey.txt
+data/
 nisp.qmd
 /.quarto/
 **/*.quarto_ipynb
