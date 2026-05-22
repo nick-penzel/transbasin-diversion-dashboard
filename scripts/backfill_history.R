@@ -9,7 +9,8 @@ library(lubridate)
 source("scripts/fetch_monthly.R")
 
 start_year <- as.integer(Sys.getenv("BACKFILL_START_YEAR", "1985"))
-end_year   <- as.integer(Sys.getenv("BACKFILL_END_YEAR",   year(Sys.Date())))
+end_year_raw <- Sys.getenv("BACKFILL_END_YEAR", "")
+end_year <- if (nzchar(end_year_raw)) as.integer(end_year_raw) else year(Sys.Date())
 repo       <- Sys.getenv("GITHUB_REPOSITORY", "nickpenzel/transbasin_div")
 
 structures <- read_csv("data/structures.csv", show_col_types = FALSE)
@@ -26,10 +27,10 @@ normals <- history |>
   group_by(wdid, name, source_basin, is_transbasin, month) |>
   summarize(
     n_years  = n(),
-    mean_cfs = mean(mean_cfs),
     p25_cfs  = quantile(mean_cfs, 0.25),
     p50_cfs  = quantile(mean_cfs, 0.50),
     p75_cfs  = quantile(mean_cfs, 0.75),
+    mean_cfs = mean(mean_cfs),   # must come LAST — reassigns the column it reads
     .groups  = "drop"
   )
 
@@ -44,7 +45,7 @@ tryCatch(
   error = function(e) message("Release already exists, continuing")
 )
 
-# Force piggyback to refresh its cached release 
+# Force piggyback to refresh its cached release list so pb_upload sees the new one
 pb_releases(repo = repo, verbose = FALSE)
 
 # Upload to Release

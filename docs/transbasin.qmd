@@ -5,5 +5,131 @@ editor: visual
 ---
 
 ```{r}
+library(tidyverse)
+```
+
+
+```{r}
+structures <- readr::read_csv("data/structures.csv", show_col_types = FALSE)
+
+source("scripts/fetch_monthly.R")
+
+test <- fetch_monthly_many("0404634", 2000, 2025)
+
+print(test)
+```
+
+
+```{r}
+structures <- readr::read_csv("data/structures.csv", show_col_types = FALSE)
+
+structures <- structures %>% 
+  select(wdid_pod:notes)
+
+write.csv(structures, "data/structures.csv", row.names = FALSE)
+```
+
+
+```{r}
+library(arrow)
+
+h <- read_parquet("~/Downloads/monthly_normals (1).parquet")
+
+print(h)
+dplyr::count(h, wdid, sort = TRUE)
+
 
 ```
+
+Pull WDID structure metadata for spatial layers
+
+```{r}
+library(sf)
+library(leaflet)
+
+source("scripts/get_structures.R")
+
+structure_test <- get_structures(wdid = "0404634")
+
+structures_meta <- get_structures_many(wdids = structures$wdid)
+
+structures_joined <- structures %>% 
+  left_join(structures_meta, by = "wdid") %>% 
+  drop_na(latitude, longitude)
+
+# write.csv(structures_joined, "data/structures.csv", row.names = FALSE)
+
+structures_sf <- structures_joined %>%
+st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = FALSE) %>% select(wdid, official_name = name.y, destination_basin ,structure_type, division, water_district, county, geometry, latitude, longitude)
+
+st_write(structures_sf, "shiny_app/data/structures.geojson", delete_dsn = TRUE)
+
+```
+
+basin layers 
+```{r}
+library(rmapshaper)
+library(AOI)
+
+co_basin <- st_read("data/colorado") %>% st_transform(4326) %>% ms_simplify(keep = 0.10, keep_shapes = TRUE) 
+sp_basin <- st_read("data/southplatte") %>% st_transform(4326) %>% ms_simplify(keep = 0.10, keep_shapes = TRUE)
+sj_basin <- st_read("data/sanjuan") %>% st_transform(4326) %>% ms_simplify(keep = 0.10, keep_shapes = TRUE)
+rg_basin <- st_read("data/riogrande") %>% st_transform(4326) %>% ms_simplify(keep = 0.10, keep_shapes = TRUE)
+dl_basin <- st_read("data/dolores") %>% st_transform(4326) %>% ms_simplify(keep = 0.10, keep_shapes = TRUE)
+ak_basin <- st_read("data/arkansas") %>% st_transform(4326) %>% ms_simplify(keep = 0.10, keep_shapes = TRUE)
+np_basin <- st_read("data/northplatte") %>% st_transform(4326) %>% ms_simplify(keep = 0.10, keep_shapes = TRUE)
+yp_basin <- st_read("data/yampa") %>% st_transform(4326) %>% ms_simplify(keep = 0.10, keep_shapes = TRUE)
+
+co_state <- aoi_get(state = "CO") %>% st_transform(4326)
+
+basins <- bind_rows(
+  co_basin %>% mutate(basin = "Colorado"),
+  sp_basin %>% mutate(basin = "South Platte"),
+  sj_basin %>% mutate(basin = "San Juan"),
+  rg_basin %>% mutate(basin = "Rio Grande"),
+  dl_basin %>% mutate(basin = "Dolores"),
+  ak_basin %>% mutate(basin = "Arkansas"),
+  np_basin %>% mutate(basin = "North Platte"),
+  yp_basin %>% mutate(basin = "Yampa/White")
+) %>% 
+  st_make_valid() %>%
+  st_intersection(co_state)
+
+st_write(basins, "shiny_app/data/basins.geojson", delete_dsn = TRUE)
+
+
+```
+
+
+```{r}
+structures <- history %>% 
+  left_join(structures_sf ,by = "wdid") %>% 
+  drop_na(geometry)
+
+leaflet(structures) %>% 
+  addTiles() %>% 
+  addCircleMarkers(
+    radius = 5,
+    color = "blue",
+    stroke = FALSE,
+    fillOpacity = 0.7,
+    label = ~name
+  ) %>% 
+  addPolygons(data = basins, fillColor = ~case_when(
+    basin == "Colorado"    ~ "#1f77b4",
+    basin == "South Platte" ~ "#ff7f0e",
+    basin == "San Juan"     ~ "#2ca02c",
+    basin == "Rio Grande"   ~ "#d62728",
+    basin == "Dolores"      ~ "#9467bd",
+    basin == "Arkansas"     ~ "#8c564b",
+    basin == "North Platte" ~ "#e377c2",
+    basin == "Yampa/White"  ~ "#7f7f7f",
+    TRUE                   ~ "gray"
+  ), fillOpacity = 0.3, color = "black", weight = 1) 
+
+
+  
+
+
+```
+
