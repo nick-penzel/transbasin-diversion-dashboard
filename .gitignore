@@ -2,9 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
+scripts/api_key.txt
 data/cdss_apikey.txt
-data/
+local_data/
 nisp.qmd
 /.quarto/
 **/*.quarto_ipynb
-scripts/api_key.txt
