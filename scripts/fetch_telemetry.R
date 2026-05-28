@@ -81,6 +81,7 @@ get_daily_discharge <- function(abbrev, start, end, parameter = "DISCHRG") {
 #' a station exists. If the station exists but has no value for the date,
 #' discharge_cfs will be NA and `note` will explain why — that's the signal
 #' to fall back to divrec.
+
 fetch_yesterday <- function(wdid, target_date = Sys.Date() - 1) {
   stations <- find_telemetry_abbrev(wdid)
   if (length(stations) == 0) return(NULL)
@@ -92,6 +93,7 @@ fetch_yesterday <- function(wdid, target_date = Sys.Date() - 1) {
 
   # Stations report under different parameter codes (DISCHRG, DISCHRG2, DISCHRG3).
   # Use what the station tells us; fall back to DISCHRG if the field is missing.
+  
   parameter <- station$parameter %||% "DISCHRG"
 
   rows <- get_daily_discharge(abbrev, target_date, target_date, parameter = parameter)
@@ -139,6 +141,7 @@ fetch_yesterday <- function(wdid, target_date = Sys.Date() - 1) {
 #'
 #' WDIDs with no telemetry are dropped from the result; track them separately
 #' so you know which ones need the divrec fallback.
+
 fetch_yesterday_many <- function(wdids, target_date = Sys.Date() - 1, pause = 0.3) {
   results <- map(wdids, function(w) {
     Sys.sleep(pause)  # be polite to the API
@@ -154,19 +157,3 @@ fetch_yesterday_many <- function(wdids, target_date = Sys.Date() - 1, pause = 0.
   bind_rows(results)
 }
 
-
-# ---- Demo when run directly ----
-if (sys.nframe() == 0) {
-  args <- commandArgs(trailingOnly = TRUE)
-  if (length(args) == 0) {
-    # Placeholder — replace with a verified WDID from your structures list
-    wdids <- c("5104634")
-    message("Usage: Rscript fetch_telemetry.R <wdid> [<wdid> ...]")
-    message("Running demo with: ", paste(wdids, collapse = ", "))
-  } else {
-    wdids <- args
-  }
-
-  out <- fetch_yesterday_many(wdids)
-  print(out)
-}

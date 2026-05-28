@@ -126,10 +126,210 @@ leaflet(structures) %>%
     basin == "Yampa/White"  ~ "#7f7f7f",
     TRUE                   ~ "gray"
   ), fillOpacity = 0.3, color = "black", weight = 1) 
-
-
   
 
 
+```
+
+Stream gauges
+
+```{r}
+stream_gages <- tribble(
+  ~id, ~name, ~type, ~cdss_abbrev,
+  "USGS-09163500", "Colorado River Near Colorado-utah State Line", "USGS", NA,
+  "USGS-09179450", "Dolores River Near Gateway, CO", "USGS", NA,
+  "USGS-09306500", "White River Near Watson, Utah", "USGS", NA,
+  "USGS-07137500", "Arkansas R NR Coolidge, KS", "USGS", NA,
+  "2202019", 	"Rio Grande near Lobatos, CO", "CDSS", "RIOLOBCO",
+  "6402896", "South Platte River at Julesburg, CO", "CDSS", "ONEJURCO",
+  "USGS-09260050", "Yampa River at Deerlodge Park, CO", "USGS", NA,
+  "USGS-09306290", "White River Below Boise Creek, Near Rangely, CO", "USGS", NA,
+  "USGS-06620000", "North Platte River near Northgate, CO", "USGS", NA,
+  "USGS-09372000", "Mcelmo Creek Near Colorado-utah State Line", "USGS", NA,
+  "USGS-09371000", "Mancos River Near Towaoc, CO", "USGS", NA,
+  "USGS-09367000", "LA Plata River at LA Plata, NM", "USGS", NA,
+  "USGS-09363500", "Animas River Near Cedar Hill, NM", "USGS", NA,
+  "USGS-09354500", "Los Pinos River at LA Boca, CO", "USGS", NA,
+  "USGS-09349800", "Piedra River Near Arboles, CO", "USGS", NA,
+  "USGS-09346400", "San Juan River Near Carracas, CO", "USGS", NA
+)
+
+write_csv(stream_gages, "data/stream_gages.csv") 
+```
+
+```{r}
+library(dataRetrieval)
+source("scripts/fetch_telemetry.R")
+
+get_streamflow <- function(gage_id, start_date = Sys.Date() -1, end_date = Sys.Date()) {
+  
+  if (gage_id %in% stream_gages$id[stream_gages$type == "USGS"]) {
+    data <- read_waterdata_daily(monitoring_location_id =  gage_id,
+                              parameter_code = "00060",
+                              time = start_date) %>% 
+  renameNWISColumns()
+    
+    data <- data %>%
+      select(date = time, flow_cfs = value, id = monitoring_location_id)
+    
+  } else if (gage_id %in% stream_gages$id[stream_gages$type == "CDSS"]) {
+    data <- fetch_yesterday_many(wdid = gage_id, target_date = start_date)
+    data <- data %>%
+      select(date = date, flow_cfs = discharge_cfs, id = wdid)
+    
+  } else {
+    stop("Unknown gage ID")
+  }
+  
+  return(data)
+}
+
+yesterday_flows <- bind_rows(lapply(stream_gages$id, function(gage_id) {
+  get_streamflow(gage_id)
+}))
+```
+
+
+```{r}
+
+get_usgs_flows <- function(gage_ids, start_date, end_date) {
+  read_waterdata_daily(
+    monitoring_location_id = gage_ids,        
+    parameter_code = "00060",
+    time = c(start_date, end_date)
+  ) %>%
+    renameNWISColumns() %>%
+    select(date = time, flow_cfs = value, id = monitoring_location_id)
+}
+
+get_cdss_flows <- function(gage_ids, start_date) {
+  fetch_yesterday_many(wdids = gage_ids, target_date = start_date) %>%
+    select(date = date, flow_cfs = discharge_cfs, id = wdid)
+}
+
+get_all_flows <- function(stream_gages, start_date = Sys.Date() - 1) {
+  usgs_ids <- stream_gages$id[stream_gages$type == "USGS"]
+  cdss_ids <- stream_gages$id[stream_gages$type == "CDSS"]
+
+  bind_rows(
+    if (length(usgs_ids) > 0) get_usgs_flows(usgs_ids, start_date),
+    if (length(cdss_ids) > 0) get_cdss_flows(cdss_ids, start_date)
+  )
+}
+
+yesterday_flows <- get_all_flows(stream_gages)
+
+yesterday_flows <- yesterday_flows %>% 
+  left_join(stream_gages, by = "id")
+
+```
+
+Manually building out the stream backfill 
+
+```{r}
+library(skimr)
+usgs_hist <- get_usgs_flows(gage_ids = stream_gages$id[stream_gages$type == "USGS"], start_date = "1999-10-01", end_date = "2025-09-30")
+
+# skim(usgs_hist)
+
+fetch_sw_daily <- function(abbrev, start_date, end_date) {
+  resp <- request("https://dwr.state.co.us/Rest/GET/api/v2") %>%
+    req_url_path_append("surfacewater/surfacewatertsday") %>%
+    req_url_query(
+      format        = "json",
+      abbrev        = abbrev,
+      `min-measDate` = format(as.Date(start_date), "%m/%d/%Y"),
+      `max-measDate` = format(as.Date(end_date), "%m/%d/%Y"),
+      pageSize      = 50000,
+      apiKey        = api_key
+    ) %>%
+    req_perform()
+
+  rows <- resp_body_json(resp, simplifyVector = FALSE)$ResultList
+  if (length(rows) == 0) return(NULL)
+
+  bind_rows(lapply(rows, function(r) {
+    tibble(
+      date     = as.Date(substr(r$measDate, 1, 10)),
+      flow_cfs = as.numeric(r$value %||% NA),
+      abbrev   = abbrev
+    )
+  }))
+}
+
+cdss_riolobco <- fetch_sw_daily(abbrev = "RIOLOBCO", start_date = "1999-10-01", end_date = "2025-09-30")  
+
+cdss_onejurco <- fetch_sw_daily(abbrev = "ONEJURCO", start_date = "1999-10-01", end_date = "2025-09-30")
+
+cdss_hist <- bind_rows(cdss_riolobco, cdss_onejurco) %>% 
+  mutate(id = as.character(case_when(
+    abbrev == "RIOLOBCO" ~ "2202019",
+    abbrev == "ONEJURCO" ~ "6402896",
+  ))) 
+
+streamflow_hist <- usgs_hist %>% 
+  mutate(abbrev = NA) %>% 
+  bind_rows(cdss_hist) %>% 
+  left_join(stream_gages, by = "id") %>% 
+  select(-cdss_abbrev)
+
+```
+Compute daily normals, smoothed to a 
+
+```{r}
+library(lubridate)
+
+streamflow_hist_doy <- streamflow_hist %>% 
+  mutate(doy = yday(date)) %>% 
+  drop_na(flow_cfs) %>% 
+  group_by(doy, id) %>% 
+  summarise(
+      n_obs    = n(),
+      p25_cfs  = quantile(flow_cfs, 0.25),
+      p50_cfs  = quantile(flow_cfs, 0.50),
+      p75_cfs  = quantile(flow_cfs, 0.75),
+      mean_cfs = mean(flow_cfs),
+      .groups  = "drop") %>% 
+  left_join(stream_gages, by = "id")
+
+```
+
+```{r}
+source("scripts/fetch_streamflow.R") 
+
+test <- fetch_streamflow_yesterday(stream_gages = stream_gages)
+
+```
+
+daily backfill 
+```{r}
+source("scripts/fetch_telemetry.R")
+source("scripts/fetch_streamflow.R")
+library(arrow); library(dplyr); library(readr)
+
+
+structures   <- read_csv("data/structures.csv", show_col_types = FALSE)
+stream_gages <- read_csv("data/stream_gages.csv", show_col_types = FALSE)
+
+dates <- seq(as.Date("2025-10-01"), Sys.Date() - 1, by = "day")
+
+for (d in dates) {
+  d <- as.Date(d, origin = "1970-01-01")
+  message("===== ", d, " =====")
+  
+  div <- fetch_yesterday_many(structures$wdid, target_date = d)
+  if (nrow(div) > 0) {
+    write_parquet(div, sprintf("local_data/daily_diversions_%s.parquet", d))
+  }
+  
+  flow <- fetch_streamflow_yesterday(stream_gages, target_date = d)
+  if (nrow(flow) > 0) {
+    write_parquet(flow, sprintf("local_data/daily_flows_%s.parquet", d))
+  }
+}
+```
+
+```{r}
+test <- fetch_yesterday_many(structures$wdid)
 ```
 
