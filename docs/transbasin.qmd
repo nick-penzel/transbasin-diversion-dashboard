@@ -292,6 +292,8 @@ streamflow_hist_doy <- streamflow_hist %>%
       .groups  = "drop") %>% 
   left_join(stream_gages, by = "id")
 
+write_parquet(streamflow_hist_doy, "local_data/streamflow_normals.parquet")
+
 ```
 
 ```{r}
@@ -330,6 +332,195 @@ for (d in dates) {
 ```
 
 ```{r}
-test <- fetch_yesterday_many(structures$wdid)
+structures <- read_csv("data/structures.csv", show_col_types = FALSE)
+
+lookup_station <- function(wdid) {
+  resp <- request("https://dwr.state.co.us/Rest/GET/api/v2") %>%
+    req_url_path_append("telemetrystations/telemetrystation") %>%
+    req_url_query(format = "json", wdid = wdid) %>%
+    req_perform()
+  
+  stations <- resp_body_json(resp, simplifyVector = FALSE)$ResultList
+  if (length(stations) == 0) {
+    return(tibble(abbrev = NA_character_, parameter = NA_character_))
+  }
+  s <- stations[[1]]
+  tibble(
+    abbrev    = s$abbrev,
+    parameter = s$parameter %||% "DISCHRG"
+  )
+}
+
+# Loop, with progress and politeness pauses
+station_info <- bind_rows(lapply(seq_len(nrow(structures)), function(i) {
+  w <- structures$wdid[i]
+  message(sprintf("[%d/%d] %s", i, nrow(structures), w))
+  Sys.sleep(0.3)
+  tryCatch(lookup_station(w), error = function(e) {
+    message("  FAILED: ", conditionMessage(e))
+    tibble(abbrev = NA_character_, parameter = NA_character_)
+  })
+}))
+
+# Combine and save
+structures_updated <- bind_cols(structures, station_info)
+write_csv(structures_updated, "data/structures.csv")
+
+```
+
+
+uploading to github 
+```{r}
+set
+
+library(piggyback)
+pb_releases(repo = "nick-penzel/transbasin-diversion-dashboard")
+
+
+library(piggyback)
+
+# Create the release (only needed once, errors harmlessly if it exists)
+pb_release_create(
+  repo = "nick-penzel/transbasin-diversion-dashboard",
+  tag  = "streamflow-data",
+  name = "Streamflow history and normals"
+)
+
+# Upload the file(s)
+pb_upload(
+  c("local_data/streamflow_normals.parquet"),   # add streamflow_history.parquet if you have it
+  repo = "nick-penzel/transbasin-diversion-dashboard",
+  tag  = "streamflow-data"
+)
+```
+
+
+Shiny debugging 
+```{r}
+setwd("/Users/nickpenzel/github/transbasin_div/shiny_app")
+
+source("R/shiny_data_source.R")
+
+daily <- load_daily_data()
+
+structure_meta <- read_csv("data/structure_meta.csv")
+
+daily_diversion <- daily$diversions %>% 
+  left_join(structure_meta %>% select(-abbrev, parameter), by = "wdid") %>% 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+
+gages_names<- read_csv("data/stream_gages.csv")
+
+daily_flow <- daily$flows %>% 
+  left_join(gages_names, by = "id") %>% 
+  st_as_sf(coords = c("X", "Y"), crs = 4326)
+
+basins <- sf::st_read("data/basins.geojson") %>% 
+  st_transform(crs = 4326)
+
+
+
+```
+
+
+```{r}
+leaflet() %>% 
+      addTiles() %>%
+    addPolygons(
+    data        = basins,                    # your sf polygon layer
+    fillColor   = "#9ecae1",
+    fillOpacity = 0.2,
+    color       = "#3182bd",                 # outline color
+    weight      = 1,
+    label       = ~ basin,               # ~ refers to columns in `basins`
+    group       = "Basins",
+    highlightOptions = highlightOptions(
+    weight = 3, color = "#666", fillOpacity = 0.4,
+    bringToFront = FALSE
+  )) %>% 
+   addCircleMarkers(
+        data = daily_diversion,
+        layerId = ~wdid,                       # so clicks report which structure
+        radius = ~pmax(4, sqrt(discharge_cfs)),  # size by magnitude, floor at 4px
+        color = ~ifelse(is_transbasin == "yes", "#1f77b4", "#888888"),
+        fillOpacity = 0.7, stroke = TRUE, weight = 1,
+        popup = ~paste0("<b>", name, "</b><br>",
+                        "Source: ",source_basin, "<br>",
+                        "Destination: ", destination_basin, "<br>",
+                        discharge_cfs, "cfs")) %>% 
+ addCircleMarkers(
+        data = daily_flow,
+        layerId = ~id,                       # so clicks report which structure
+        radius = ~pmax(4, sqrt(flow_cfs)/2),  # size by magnitude, floor at 4px
+        color = "darkblue",
+        fillOpacity = 0.7, stroke = TRUE, weight = 1,
+        popup = ~paste0("<b>", name, "</b><br>",
+                        flow_cfs, "cfs")) 
+  
+
+```
+
+Daily data back fill diversions 
+
+```{r}
+
+setwd("/Users/nickpenzel/github/transbasin_div")
+
+fetch_telemetry_range <- function(wdid, abbrev, parameter, start_date, end_date) {
+  resp <- request("https://dwr.state.co.us/Rest/GET/api/v2") %>%
+    req_url_path_append("telemetrystations/telemetrytimeseriesday") %>%
+    req_url_query(
+      format         = "json",
+      abbrev         = abbrev,
+      parameter      = parameter,
+      `min-measDate` = format(as.Date(start_date), "%m/%d/%Y"),
+      `max-measDate` = format(as.Date(end_date), "%m/%d/%Y"),
+      pageSize       = 50000,
+      apiKey         = api_key
+    ) %>%
+    req_perform()
+  
+  rows <- resp_body_json(resp, simplifyVector = FALSE)$ResultList
+  if (length(rows) == 0) return(NULL)
+  
+  bind_rows(lapply(rows, function(r) {
+    tibble(
+      wdid          = wdid,
+      date          = as.Date(substr(r$measDate, 1, 10)),
+      discharge_cfs = as.numeric(r$measValue %||% NA),
+      abbrev        = abbrev,
+      parameter     = parameter
+    )
+  }))
+}
+
+test <- fetch_telemetry_range("0404634", "ADATUNCO", "DISCHRG", start_date = start, end_date = end)
+
+structures <- read_csv("data/structures.csv", show_col_types = FALSE) %>% 
+  drop_na(abbrev)
+
+start <- Sys.Date() - 90
+end   <- Sys.Date() - 1
+
+# Fetch all structures over the full range
+all_data <- bind_rows(lapply(seq_len(nrow(structures)), function(i) {
+  s <- structures[i, ]
+  message(sprintf("[%d/%d] %s", i, nrow(structures), s$wdid))
+  Sys.sleep(0.3)
+  tryCatch(
+    fetch_telemetry_range(s$wdid, s$abbrev, s$parameter, start, end),
+    error = function(e) { message("  FAILED: ", conditionMessage(e)); NULL }
+  )
+}))
+
+
+# Split into per-day Parquets to match the daily Action's output layout
+for (d in unique(all_data$date)) {
+  d <- as.Date(d, origin = "1970-01-01")
+  day_data <- all_data %>% filter(date == d)
+  path <- sprintf("local_data/daily_diversions_%s.parquet", d)
+  if (!file.exists(path)) write_parquet(day_data, path)
+}
+
 ```
 

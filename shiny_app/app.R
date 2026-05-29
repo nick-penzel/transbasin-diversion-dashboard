@@ -11,25 +11,26 @@ library(piggyback)
 REPO <- "nick-penzel/transbasin-diversion-dashboard"
 TAG  <- "historical-data"
 
-# ---- Load data at startup ----
-dir.create("cache", showWarnings = FALSE)
-pb_download(
-  c("historical_monthly.parquet", "monthly_normals.parquet"),
-  repo = REPO, tag = TAG, dest = "cache"
-)
-history <- read_parquet("cache/historical_monthly.parquet")
-normals <- read_parquet("cache/monthly_normals.parquet")
+# Load data at startup
 
-# One row per structure for the map. Expects lat/long + is_transbasin in the
-# history file (join them in from your verified structures CSV if not present).
+source("R/shiny_data_source.R")
 
-structures_sf <- st_read("data/structures.geojson", quiet = TRUE) %>% 
-  st_transform(4326)
+daily <- load_daily_data()
 
-structures <- history %>% 
-  left_join(structures_sf ,by = "wdid") %>% 
-  drop_na(geometry)
+structure_meta <- read_csv("data/structure_meta.csv")
 
+daily_diversion <- daily$diversions %>% 
+  left_join(structure_meta %>% select(-abbrev, parameter), by = "wdid") %>% 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+
+gages_names<- read_csv("data/stream_gages.csv")
+
+daily_flow <- daily$flows %>% 
+  left_join(gages_names, by = "id") %>% 
+  st_as_sf(coords = c("X", "Y"), crs = 4326)
+
+basins <- sf::st_read("data/basins.geojson") %>% 
+  st_transform(crs = 4326)
 
 # ---- UI ----
 ui <- fluidPage(
@@ -72,18 +73,38 @@ server <- function(input, output, session) {
   
   # ---- Map: initial render ----
   output$map <- renderLeaflet({
-    leaflet(structures) |>
-      addTiles() |>
+    leaflet() %>% 
+      addTiles() %>%
+      addPolygons(
+        data        = basins,                    
+        fillColor   = "#9ecae1",
+        fillOpacity = 0.2,
+        color       = "#3182bd",               
+        weight      = 1,
+        label       = ~ basin,               
+        group       = "Basins",
+        highlightOptions = highlightOptions(
+          weight = 3, color = "#666", fillOpacity = 0.4,
+          bringToFront = FALSE
+        )) %>% 
       addCircleMarkers(
-        lng = ~longitude, lat = ~latitude,
-        layerId = ~wdid,                       # so clicks report which structure
-        radius = ~pmax(4, sqrt(mean_cfs) / 8),  # size by magnitude, floor at 4px
-        color = ~ifelse(is_transbasin, "#1f77b4", "#888888"),
+        data = daily_diversion,
+        layerId = ~wdid,                       
+        radius = ~pmax(4, sqrt(discharge_cfs)),  
+        color = ~ifelse(is_transbasin == "yes", "#1f77b4", "#888888"),
         fillOpacity = 0.7, stroke = TRUE, weight = 1,
         popup = ~paste0("<b>", name, "</b><br>",
-                        source_basin, "<br>",
-                        round(mean_cfs), " AF/yr avg")
-      )
+                        "Source: ",source_basin, "<br>",
+                        "Destination: ", destination_basin, "<br>",
+                        discharge_cfs, "cfs")) %>% 
+      addCircleMarkers(
+        data = daily_flow,
+        layerId = ~id,                       
+        radius = ~pmax(4, sqrt(flow_cfs)/2),  
+        color = "darkblue",
+        fillOpacity = 0.7, stroke = TRUE, weight = 1,
+        popup = ~paste0("<b>", name, "</b><br>",
+                        flow_cfs, "cfs")) 
   })
   
   # ---- Map: highlight the selected marker without full redraw ----
