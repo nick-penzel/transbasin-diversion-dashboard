@@ -52,7 +52,7 @@ if (length(to_upload) == 0) {
 tryCatch(
   pb_release_create(repo = repo, tag = "daily-data",
                     name = "Daily telemetry data",
-                    .token = Sys.getenv("GITHUB_TOKEN")),
+                    .token = trimws(Sys.getenv("GITHUB_TOKEN"))),
   error = function(e) message("Release already exists, continuing")
 )
 
@@ -61,6 +61,5 @@ pb_upload(
   repo      = repo,
   tag       = "daily-data",
   overwrite = TRUE,
-  .token    = Sys.getenv("GITHUB_TOKEN")
+  .token    = trimws(Sys.getenv("GITHUB_TOKEN"))
 )
-
