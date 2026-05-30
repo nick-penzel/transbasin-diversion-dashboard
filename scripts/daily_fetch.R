@@ -17,7 +17,7 @@ target_date <- Sys.Date() - 1
 
 # Diversions
 structures <- read_csv("data/structures.csv", show_col_types = FALSE)
-div_results <- fetch_yesterday_many(structures$wdid, target_date = target_date)
+div_results <- fetch_yesterday_many(structures, target_date = target_date)
 
 if (nrow(div_results) > 0) {
   div_file <- sprintf("data/daily_diversions_%s.parquet", target_date)
