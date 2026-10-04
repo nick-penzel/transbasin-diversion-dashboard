@@ -1,65 +1,42 @@
-# Daily fetch: yesterday's diversion telemetry AND streamflow.
-# Writes two separate Parquet files (different schemas) and uploads both
-# to the daily-data release. Append-only.
+# Daily fetch: diversion telemetry and streamflow for a date range, upserted
+# into partitioned Parquet datasets under data_root(). Defaults to the last
+# 7 days so provisional values that get revised are refreshed.
+#
+# Usage: Rscript scripts/daily_fetch.R [START_DATE] [END_DATE]
+#   Last year of telemetry: Rscript scripts/daily_fetch.R 2025-10-04 2026-10-03
 
 suppressPackageStartupMessages({
   library(dplyr)
-  library(arrow)
-  library(piggyback)
   library(readr)
+  library(lubridate)
 })
 
+source("scripts/storage.R")
 source("scripts/fetch_telemetry.R")
 source("scripts/fetch_streamflow.R")
 
-repo        <- Sys.getenv("GITHUB_REPOSITORY", "nick-penzel/transbasin-diversion-dashboard")
-target_date <- Sys.Date() - 1
+args <- commandArgs(trailingOnly = TRUE)
+end_date   <- if (length(args) > 1) as.Date(args[2]) else Sys.Date() - 1
+start_date <- if (length(args) > 0) as.Date(args[1]) else end_date - 6
+message(sprintf("Fetching %s to %s", start_date, end_date))
 
-# Diversions
-structures <- read_csv("data/structures.csv", show_col_types = FALSE)
-div_results <- fetch_yesterday_many(structures, target_date = target_date)
-
-if (nrow(div_results) > 0) {
-  div_file <- sprintf("data/daily_diversions_%s.parquet", target_date)
-  write_parquet(div_results, div_file)
-  message(sprintf("Wrote %s (%d rows)", div_file, nrow(div_results)))
-} else {
-  div_file <- NULL
-  message("No diversion telemetry for ", target_date)
+add_partitions <- function(df) {
+  mutate(df, year = as.integer(year(date)), month = as.integer(month(date)))
 }
 
-# Streamflow
-stream_gages <- read_csv("data/stream_gages.csv", show_col_types = FALSE)
-flow_results <- fetch_streamflow_yesterday(stream_gages, target_date = target_date)
+structures <- read_csv("data/structures.csv",
+                       col_types = cols(.default = "c"))
+div_results <- fetch_telemetry_many(structures, start_date, end_date)
 
-if (nrow(flow_results) > 0) {
-  flow_file <- sprintf("data/daily_flows_%s.parquet", target_date)
-  write_parquet(flow_results, flow_file)
-  message(sprintf("Wrote %s (%d rows)", flow_file, nrow(flow_results)))
-} else {
-  flow_file <- NULL
-  message("No streamflow for ", target_date)
+stream_gages <- read_csv("data/stream_gages.csv",
+                         col_types = cols(.default = "c"))
+flow_results <- fetch_streamflow(stream_gages, start_date, end_date)
+
+if (nrow(div_results) == 0 && nrow(flow_results) == 0) {
+  stop("No diversion or streamflow data returned")
 }
 
-# Bail if both empty
-to_upload <- c(div_file, flow_file)
-if (length(to_upload) == 0) {
-  message("Nothing to upload, exiting.")
-  quit(status = 0)
-}
-
-# Ensure release exists
-tryCatch(
-  pb_release_create(repo = repo, tag = "daily-data",
-                    name = "Daily telemetry data",
-                    .token = trimws(Sys.getenv("GITHUB_TOKEN"))),
-  error = function(e) message("Release already exists, continuing")
-)
-
-pb_upload(
-  to_upload,
-  repo      = repo,
-  tag       = "daily-data",
-  overwrite = TRUE,
-  .token    = trimws(Sys.getenv("GITHUB_TOKEN"))
-)
+upsert_dataset(add_partitions(div_results), "diversions_daily",
+               keys = c("wdid", "date"), partitioning = c("year", "month"))
+upsert_dataset(add_partitions(flow_results), "streamflow_daily",
+               keys = c("id", "date"), partitioning = c("year", "month"))

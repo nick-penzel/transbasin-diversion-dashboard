@@ -8,3 +8,6 @@ local_data/
 nisp.qmd
 /.quarto/
 **/*.quarto_ipynb
+
+# ETL output (Stage 1 local storage)
+data/*/

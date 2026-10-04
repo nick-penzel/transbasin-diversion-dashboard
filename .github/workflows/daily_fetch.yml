@@ -1,9 +1,11 @@
 name: Daily fetch (diversions + streamflow)
 
+# Schedule disabled for Stage 1 (local storage). Re-enable in Stage 2 once
+# scripts write to S3.
 on:
-  schedule:
-    # 13:30 UTC = 7:30 AM Mountain (MDT) / 6:30 AM (MST).
-    - cron: '30 13 * * *'
+  # schedule:
+  #   # 13:30 UTC = 7:30 AM Mountain (MDT) / 6:30 AM (MST).
+  #   - cron: '30 13 * * *'
   workflow_dispatch:
 
 jobs:
