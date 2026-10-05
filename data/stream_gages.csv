@@ -1,17 +1,51 @@
-id,name,type,cdss_abbrev
-USGS-09163500,Colorado River Near Colorado-utah State Line,USGS,NA
-USGS-09179450,"Dolores River Near Gateway, CO",USGS,NA
-USGS-09306500,"White River Near Watson, Utah",USGS,NA
-USGS-07137500,"Arkansas R NR Coolidge, KS",USGS,NA
-2202019,"Rio Grande near Lobatos, CO",CDSS,RIOLOBCO
-6402896,"South Platte River at Julesburg, CO",CDSS,ONEJURCO
-USGS-09260050,"Yampa River at Deerlodge Park, CO",USGS,NA
-USGS-09306290,"White River Below Boise Creek, Near Rangely, CO",USGS,NA
-USGS-06620000,"North Platte River near Northgate, CO",USGS,NA
-USGS-09372000,Mcelmo Creek Near Colorado-utah State Line,USGS,NA
-USGS-09371000,"Mancos River Near Towaoc, CO",USGS,NA
-USGS-09367000,"LA Plata River at LA Plata, NM",USGS,NA
-USGS-09363500,"Animas River Near Cedar Hill, NM",USGS,NA
-USGS-09354500,"Los Pinos River at LA Boca, CO",USGS,NA
-USGS-09349800,"Piedra River Near Arboles, CO",USGS,NA
-USGS-09346400,"San Juan River Near Carracas, CO",USGS,NA
+id,name,type,cdss_abbrev,huc8
+USGS-09163500,Colorado River Near Colorado-utah State Line,USGS,NA,14010005
+USGS-09179450,"Dolores River Near Gateway, CO",USGS,NA,14030004
+USGS-09306500,"White River Near Watson, Utah",USGS,NA,NA
+USGS-07137500,"Arkansas R NR Coolidge, KS",USGS,NA,NA
+2202019,"Rio Grande near Lobatos, CO",CDSS,RIOLOBCO,NA
+6402896,"South Platte River at Julesburg, CO",CDSS,ONEJURCO,NA
+USGS-09260050,"Yampa River at Deerlodge Park, CO",USGS,NA,14050002
+USGS-09306290,"White River Below Boise Creek, Near Rangely, CO",USGS,NA,14050007
+USGS-06620000,"North Platte River near Northgate, CO",USGS,NA,10180001
+USGS-09372000,Mcelmo Creek Near Colorado-utah State Line,USGS,NA,14080202
+USGS-09371000,"Mancos River Near Towaoc, CO",USGS,NA,14080107
+USGS-09367000,"LA Plata River at LA Plata, NM",USGS,NA,NA
+USGS-09363500,"Animas River Near Cedar Hill, NM",USGS,NA,14080104
+USGS-09354500,"Los Pinos River at LA Boca, CO",USGS,NA,14080101
+USGS-09349800,"Piedra River Near Arboles, CO",USGS,NA,14080102
+USGS-09346400,"San Juan River Near Carracas, CO",USGS,NA,14080101
+USGS-06711565,"South Platte River at Englewood, CO",USGS,NA,10190002
+USGS-06721000,"South Platte River at Fort Lupton, CO",USGS,NA,10190003
+USGS-06719505,"Clear Creek at Golden, CO",USGS,NA,10190004
+USGS-06730500,"Boulder Creek at Mouth near Longmont, CO",USGS,NA,10190005
+USGS-06741510,"Big Thompson River at Loveland, CO",USGS,NA,10190006
+USGS-06752280,"Cache La Poudre River above Boxelder Creek near Timnath, CO",USGS,NA,10190007
+USGS-06759500,"South Platte River at Fort Morgan, CO",USGS,NA,10190012
+USGS-07094500,"Arkansas River at Parkdale, CO",USGS,NA,11020001
+USGS-07109500,"Arkansas River near Avondale, CO",USGS,NA,11020002
+USGS-07106300,"Fountain Creek near Pinon, CO",USGS,NA,11020003
+USGS-07121500,"Timpas Creek at Mouth near Swink, CO",USGS,NA,11020005
+USGS-07116500,"Huerfano River near Boone, CO",USGS,NA,11020006
+USGS-07119500,"Apishapa River near Fowler, CO",USGS,NA,11020007
+USGS-07134180,"Arkansas River near Granada, CO",USGS,NA,11020009
+USGS-07128500,"Purgatoire River near Las Animas, CO",USGS,NA,11020010
+USGS-09070500,"Colorado River near Dotsero, CO",USGS,NA,14010001
+USGS-09057500,"Blue River below Green Mountain Reservoir, CO",USGS,NA,14010002
+USGS-09070000,"Eagle River below Gypsum, CO",USGS,NA,14010003
+USGS-09085000,"Roaring Fork River at Glenwood Springs, CO",USGS,NA,14010004
+USGS-09110000,"Taylor River at Almont, CO",USGS,NA,14020001
+USGS-09128000,"Gunnison River below Gunnison Tunnel, CO",USGS,NA,14020002
+USGS-09119000,"Tomichi Creek at Gunnison, CO",USGS,NA,14020003
+USGS-09132500,"North Fork Gunnison River near Somerset, CO",USGS,NA,14020004
+USGS-09152500,"Gunnison River near Grand Junction, CO",USGS,NA,14020005
+USGS-09149500,"Uncompahgre River at Delta, CO",USGS,NA,14020006
+USGS-09171100,"Dolores River near Bedrock, CO",USGS,NA,14030002
+USGS-09177000,"San Miguel River at Uravan, CO",USGS,NA,14030003
+USGS-09247600,"Yampa River below Craig, CO",USGS,NA,14050001
+USGS-09260000,"Little Snake River near Lily, CO",USGS,NA,14050003
+USGS-09304800,"White River below Meeker, CO",USGS,NA,14050005
+USGS-09306222,"Piceance Creek at White River, CO",USGS,NA,14050006
+USGS-09371010,"San Juan River at Four Corners, CO",USGS,NA,14080201
+RIODELCO,"Rio Grande near Del Norte, CO",CDSS,RIODELCO,NA
+CONMOGCO,"Conejos River near Mogote, CO",CDSS,CONMOGCO,NA

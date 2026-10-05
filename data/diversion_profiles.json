@@ -1,0 +1,899 @@
+{
+  "7600572": {
+    "wdid": "7600572",
+    "name": "Sand Creek Ditch",
+    "found": true,
+    "summary": "Diverts water from Deadman Creek into Sand Creek in the North Platte Basin. The Deadman Ditch (a tributary diversion) feeds into Sand Creek, which has been used for irrigation since 1899. Water from Sand Creek is subsequently diverted downstream through the Wilson Supply Ditch to the Poudre basin.",
+    "built": "1899",
+    "operator": null,
+    "serves": "Irrigation in North Park area and Eaton Reservoir region",
+    "facts": [
+      "First appropriation date: 1899",
+      "Diverts approximately 727 acre-feet per year",
+      "Connected to Wilson Supply Ditch which continues the trans-basin transfer"
+    ],
+    "sources": [
+      "https://www.schweich.com/coxbasinh20A.html"
+    ]
+  },
+  "0304606": {
+    "wdid": "0304606",
+    "name": "Bob Creek Ditch",
+    "found": false,
+    "summary": "",
+    "built": null,
+    "operator": null,
+    "serves": null,
+    "facts": [],
+    "sources": []
+  },
+  "4800576": {
+    "wdid": "4800576",
+    "name": "Laramie-Poudre Tunnel",
+    "found": true,
+    "summary": "Tunnel that transfers water from the Laramie River basin (North Platte) under a ridge to the Cache la Poudre River basin (South Platte). Built by the Greeley-Poudre Irrigation District, the tunnel enables trans-basin diversion of water for irrigation of farming areas in northern Colorado.",
+    "built": "1911",
+    "operator": "Greeley-Poudre Irrigation District (later expanded operations)",
+    "serves": "Irrigation districts in northern Colorado, farming operations",
+    "facts": [
+      "Work began 1909, completed 1911",
+      "About 11,500 feet long with minimum diameter of 5.3 feet",
+      "Located at 8,400 feet elevation",
+      "Renovation completed in 2000"
+    ],
+    "sources": [
+      "https://en.wikipedia.org/wiki/Laramie-Poudre_Tunnel",
+      "https://pehc.colostate.edu/digital_projects/dp/poudre-river/moving-storing/let-the-water-flow-ditch-companys/laramie-poudre-irrigation-company/"
+    ]
+  },
+  "4800577": {
+    "wdid": "4800577",
+    "name": "Skyline Ditch",
+    "found": true,
+    "summary": "Early trans-basin diversion that carries water from the Laramie River and tributaries to the north end of Chambers Lake in the Cache la Poudre basin. One of Colorado's first successful interbasin transfers, the ditch diverts water from the North Platte Basin to the South Platte Basin for irrigation.",
+    "built": "1895",
+    "operator": "Water Supply and Storage Company",
+    "serves": "Irrigation districts, Chambers Lake water supply",
+    "facts": [
+      "First diversion occurred in 1894, project completed 1895",
+      "Five miles long, capacity 18,000 acre-feet per year",
+      "Limited to 18,000 acre-feet by Wyoming v. Colorado decree (1922, 1940)",
+      "Early example of interbasin transfer"
+    ],
+    "sources": [
+      "https://publiclands.colostate.edu/digital_projects/dp/poudre-river/moving-storing/ditches-dams-diversions/skyline-ditch/"
+    ]
+  },
+  "0304602": {
+    "wdid": "0304602",
+    "name": "Cameron Pass Ditch",
+    "found": true,
+    "summary": "One of Colorado's first trans-basin diversions, created in 1882 to divert Michigan Creek from the North Platte Basin to the Cache la Poudre watershed in the South Platte Basin. Operated on the west side of Cameron Pass and was the first successful project to cross a significant river basin boundary.",
+    "built": "1882",
+    "operator": "Larimer County Ditch Company, later Water Supply and Storage Company",
+    "serves": "Irrigation for northern Colorado farms and ranches",
+    "facts": [
+      "First trans-basin diversion to cross significant river basin boundary",
+      "Built 20 years before Michigan Ditch on the east side of the pass"
+    ],
+    "sources": [
+      "https://pehc.colostate.edu/digital_projects/dp/poudre-river/moving-storing/ditches-dams-diversions/skyline-ditch/",
+      "https://www.schweich.com/coxbasinh20A.html"
+    ]
+  },
+  "0304603": {
+    "wdid": "0304603",
+    "name": "Michigan Ditch",
+    "found": true,
+    "summary": "Five-mile canal diversion owned and operated by the City of Fort Collins that transports water from the upper Michigan River in the North Platte Basin to the Cache la Poudre River basin. Provides municipal and irrigation water supply to the Fort Collins area.",
+    "built": "1902",
+    "operator": "City of Fort Collins (owned since 1971), originally North Poudre Irrigation Company",
+    "serves": "City of Fort Collins municipal water supply, irrigation districts",
+    "facts": [
+      "Originally filed in 1903, sold to Mountain Supply Ditch Company in 1904",
+      "Built over 120 years ago",
+      "Provides approximately 11 percent of Fort Collins water supply",
+      "Purchased by Fort Collins from North Poudre Irrigation Company in 1971"
+    ],
+    "sources": [
+      "https://waterdata.usgs.gov/monitoring-location/USGS-06746000/",
+      "https://www.kunc.org/environment/2025-08-14/to-keep-water-flowing-in-fort-collins-these-trees-are-getting-ditched"
+    ]
+  },
+  "7600600": {
+    "wdid": "7600600",
+    "name": "Wilson Supply Ditch",
+    "found": true,
+    "summary": "Trans-basin diversion that carries water from Sand Creek in the Laramie River basin (North Platte) to Sheep Creek, a tributary of the North Fork Cache la Poudre River (South Platte). Allows irrigation district water users to access water from the North Platte Basin on the east side of the divide.",
+    "built": "1896",
+    "operator": null,
+    "serves": "Irrigation districts in the Cache la Poudre basin area",
+    "facts": [
+      "First appropriation date: 1896",
+      "Diverts water originally from Deadman Creek and Sand Creek",
+      "Appropriates 2,000 acre-feet per year per 1936 Supreme Court decree",
+      "Averages 2,314 acre-feet per year diverted"
+    ],
+    "sources": [
+      "https://waterdata.usgs.gov/monitoring-location/USGS-06750500/",
+      "https://www.schweich.com/coxbasinh20A.html"
+    ]
+  },
+  "0304601": {
+    "wdid": "0304601",
+    "name": "Grand River Ditch",
+    "found": true,
+    "summary": "One of Colorado's largest early trans-basin diversions from the Colorado River to the South Platte River. The 14.3-mile ditch diverts water from Colorado River tributaries across the Continental Divide for irrigation of farms and ranches in northeastern Colorado.",
+    "built": "1890-1937",
+    "operator": "Water Supply and Storage Company",
+    "serves": "Irrigation for farms and ranches in northeastern Colorado",
+    "facts": [
+      "Larimer County Ditch Company started first diversion October 15, 1890",
+      "Main section constructed 1901-1911 by engineer James H. Andrews using hand tools and mules",
+      "Used Japanese and Mexican laborers",
+      "Expanded from 125 cfs to 360 cfs capacity through 1901-1934 improvements"
+    ],
+    "sources": [
+      "https://pehc.colostate.edu/digital_projects/dp/poudre-river/moving-storing/ditches-dams-diversions/grand-river-ditch/",
+      "https://en.wikipedia.org/wiki/Grand_Ditch"
+    ]
+  },
+  "0404634": {
+    "wdid": "0404634",
+    "name": "Alva B. Adams Tunnel",
+    "found": true,
+    "summary": "The principal component of the Colorado-Big Thompson Project, this 13.1-mile tunnel transfers water from the western slope of the Colorado River drainage to the densely populated eastern Front Range. One of the largest transmountain diversion projects in Colorado.",
+    "built": "1940-1947",
+    "operator": "U.S. Bureau of Reclamation",
+    "serves": "Over 1.1 million residents, 33 municipalities, 120 irrigation entities, approximately 550,000 acres of farmland",
+    "facts": [
+      "Construction began June 23, 1940, first water flowed June 23, 1947",
+      "Tunnel breakthrough June 10, 1944, alignment off by less than a penny's width",
+      "Delivers more than 200,000 acre-feet annually",
+      "Water flows by gravity with 109-foot elevation drop"
+    ],
+    "sources": [
+      "https://en.wikipedia.org/wiki/Alva_B._Adams_Tunnel",
+      "https://www.northernwater.org/water/projects/colorado-big-thompson-project/cbt-history"
+    ]
+  },
+  "0604655": {
+    "wdid": "0604655",
+    "name": "Moffat Tunnel",
+    "found": true,
+    "summary": "Originally a railroad tunnel completed in 1928, the Moffat Tunnel was converted to also serve as a water diversion from the Fraser River basin to the South Platte River basin. Denver Water uses the tunnel to deliver water from Colorado River tributaries to the Front Range.",
+    "built": "1928 (rail tunnel); water deliveries since 1936",
+    "operator": "Denver Water",
+    "serves": "Denver Water customers on the Front Range",
+    "facts": [
+      "6.2 miles long, can deliver up to 100,000 acre-feet annually",
+      "Parallel tunnel and lining improvements completed by 1958"
+    ],
+    "sources": [
+      "https://www.denverwater.org/tap/how-moffat-tunnel-conquered-great-divide",
+      "https://en.wikipedia.org/wiki/Moffat_Tunnel"
+    ]
+  },
+  "0704625": {
+    "wdid": "0704625",
+    "name": "Berthoud Pass Ditch",
+    "found": true,
+    "summary": "Diverts water from the headwaters of the Fraser River above Berthoud Pass to the West Fork of Clear Creek, transferring water from the Colorado River basin to the South Platte River basin for municipal water supply to northern Colorado Front Range cities.",
+    "built": "1902",
+    "operator": null,
+    "serves": "Municipal water supply for Northglenn, Golden, and other Front Range communities",
+    "facts": [
+      "Appropriation date June 30, 1902",
+      "3.5 miles long, decreed capacity 53.4 cubic feet per second",
+      "Includes ditch and short tunnel under Berthoud Pass Ski Area parking lot",
+      "Collects surface runoff above 11,300 feet elevation"
+    ],
+    "sources": [
+      "https://www.schweich.com/coxbasinh20A.html"
+    ]
+  },
+  "0704650": {
+    "wdid": "0704650",
+    "name": "Jones Pass Tunnel",
+    "found": true,
+    "summary": "Also called August P. Gumlick Tunnel. Built in 1940, it diverts water from the Williams Fork under Jones Pass across the Continental Divide into Clear Creek. Improved 1957-58. The tunnel is 2.9 miles long with 7-foot height and can carry 550 cubic feet per second. Water flows through the Vasquez Tunnel and is delivered to Denver via the Moffat Tunnel.",
+    "built": "1940",
+    "operator": "Denver Water Board",
+    "serves": "City of Denver",
+    "facts": [
+      "Renamed in 1970 for August P. Gumlick, who served a record 30 years on Denver Water Board (1929-1959)",
+      "Located 2,000 feet below Jones Pass crest at 12,454 feet elevation",
+      "Improved and expanded in 1957-1958"
+    ],
+    "sources": [
+      "https://www.coloradotopia.com/explore/drive/jones-pass/",
+      "https://www.denverwater.org/tap/were-watchin-you-gumlick",
+      "https://clui.org/ludb/site/vasquez-and-gumlick-tunnel-intersection"
+    ]
+  },
+  "0704682": {
+    "wdid": "0704682",
+    "name": "Straight Creek Tunnel",
+    "found": false,
+    "summary": "",
+    "built": null,
+    "operator": null,
+    "serves": null,
+    "facts": [],
+    "sources": []
+  },
+  "3604626": {
+    "wdid": "3604626",
+    "name": "Vidler Tunnel",
+    "found": true,
+    "summary": "Originally started in 1901 as a railroad tunnel, it was repurposed as a water diversion project. The 1.4-mile tunnel was completed in 1968 with first water flowing in 1969. Diverts water from Peru Creek (Colorado River watershed) over the Continental Divide to the South Platte basin. Collection system completed 1970, decreed for 31.5 cubic feet per second.",
+    "built": "1968",
+    "operator": "City of Golden",
+    "serves": "Clear Creek basin, Colorado River to South Platte transfer",
+    "facts": [
+      "Originally surveyed as railroad tunnel starting in 1901, eastern section reached 5,118 feet by 1911",
+      "Purchased by City of Golden in 2000 for $1,000,000",
+      "Subject of 1979 Colorado Supreme Court decision limiting water speculation"
+    ],
+    "sources": [
+      "https://schweich.com/geoCOSumVidlerTunnel.html",
+      "https://law.justia.com/cases/colorado/supreme-court/1979/27968.html",
+      "https://watereducationcolorado.org/publications-and-radio/headwaters-magazine/spring-2025-the-water-markets-issue/liquid-assets/"
+    ]
+  },
+  "8000653": {
+    "wdid": "8000653",
+    "name": "Harold D. Roberts Tunnel",
+    "found": true,
+    "summary": "One of the longest water tunnels in the world at 23.3 miles, completed in 1962. Carries water from Dillon Reservoir on the Blue River (Western Slope) under the Continental Divide to the North Fork South Platte River near Grant. Can carry up to 1,020 cubic feet per second for Denver Water.",
+    "built": "1962",
+    "operator": "Denver Water Board",
+    "serves": "City of Denver",
+    "facts": [
+      "Named in 1955 for Harold D. Roberts, attorney and special counsel for Denver Water Board",
+      "Tunnel holed-through in early 1960, completed 1962",
+      "Begins at Dillon Reservoir and terminates near Grant in Park County"
+    ],
+    "sources": [
+      "https://en.wikipedia.org/wiki/Roberts_Tunnel",
+      "https://www.theflume.com/free_content/article_b73928bc-5bbb-11e4-a7fd-001a4bcf6878.html",
+      "https://www.summitdaily.com/news/roberts-tunnel-celebrates-50-years/"
+    ]
+  },
+  "2304611": {
+    "wdid": "2304611",
+    "name": "Boreas Pass Ditch",
+    "found": true,
+    "summary": "Completed in 1910, this 0.8-mile ditch diverts water from the headwaters of Indiana Creek (Blue River tributary) over Boreas Pass at 11,500 feet elevation into North Tarryall Creek (South Platte tributary). Capacity of 16 cubic feet per second. Originally appropriated for irrigation but now serves municipal purposes.",
+    "built": "1910",
+    "operator": "City of Englewood",
+    "serves": "Englewood municipal water",
+    "facts": [
+      "Appropriation date January 1, 1910",
+      "Transfers water from Colorado River basin to South Platte basin",
+      "Yields approximately 140 acre-feet average annual diversion, ranging 0 to 260 acre-feet per year"
+    ],
+    "sources": [
+      "https://citizenportal.ai/articles/6638399/colorado/arapahoe-county/englewood-city/eagle-scout-project-cleared-to-remove-debris-and-restore-bank-on-boreas-no-2-ditch",
+      "https://en.wikipedia.org/wiki/Boreas_Pass",
+      "https://www.blueriverwatershed.org/watershed-facts"
+    ]
+  },
+  "2304612": {
+    "wdid": "2304612",
+    "name": "Continental-Hoosier Tunnel",
+    "found": true,
+    "summary": "Completed in 1951-1952, this 1.5-mile tunnel with 10-foot diameter diverts water from Blue River headwaters under Hoosier Pass to Montgomery Reservoir. Can deliver up to 500 cubic feet per second. Water then piped 70 miles to Colorado Springs. Part of a larger system including collection ditches, reservoirs, and pipelines flowing by gravity.",
+    "built": "1951",
+    "operator": "City of Colorado Springs Utilities",
+    "serves": "Colorado Springs",
+    "facts": [
+      "Construction began 1949, completed 1951-1952",
+      "System includes Middle Fork South Platte River connection",
+      "Montgomery Reservoir sits at 10,873 feet elevation near Hoosier Pass south of Alma"
+    ],
+    "sources": [
+      "https://www.csu.org/current-projects/continential-hoosier-system",
+      "https://clui.org/ludb/site/hoosier-tunnel-east-portal-and-montgomery-reservoir",
+      "https://en.wikipedia.org/wiki/Montgomery_Reservoir"
+    ]
+  },
+  "2304490": {
+    "wdid": "2304490",
+    "name": "Homestake Joint Pipeline",
+    "found": true,
+    "summary": "Completed in 1967 as a joint project of Aurora and Colorado Springs. Original filing 1954. The 66-inch diameter, 56-mile long pipeline delivers approximately 70,800 acre-feet annually with maximum rate of 150 cubic feet per second. Transfers transmountain diversions from Colorado western slopes across Continental Divide to eastern slopes for both cities.",
+    "built": "1967",
+    "operator": "Homestake Authority (Aurora Water and Colorado Springs Utilities)",
+    "serves": "Aurora and Colorado Springs",
+    "facts": [
+      "Aurora and Colorado Springs share equally in yield and costs",
+      "Pump station installed in 2002 to increase flow rate across South Platte-Arkansas divide"
+    ],
+    "sources": [
+      "https://www.csu.org/blog/homestake-water-project-decision",
+      "https://en.wikipedia.org/wiki/Homestake_Reservoir",
+      "https://ascelibrary.org/doi/10.1061/JPLEAZ.0000109"
+    ]
+  },
+  "1104616": {
+    "wdid": "1104616",
+    "name": "Columbine Ditch",
+    "found": true,
+    "summary": "Completed in 1931 at about 11,500 feet on Fremont Pass, 13 miles north of Leadville. The two-mile ditch collects water from three small streams in the Eagle River watershed and carries it over Fremont Pass into the Arkansas River basin. Yields roughly 1,300 to 1,700 acre-feet a year.",
+    "built": "1931",
+    "operator": null,
+    "serves": "Arkansas River basin",
+    "facts": [
+      "Originally built to serve irrigators in 1931"
+    ],
+    "sources": [
+      "https://coyotegulch.blog/category/colorado-water/transmountaintransbasin-diversions/columbine-ditch/",
+      "https://schweich.com/coxbasinh20A.html",
+      "https://www.lincolninst.edu/pt-br/publications/articles/super-ditch"
+    ]
+  },
+  "1100500": {
+    "wdid": "1100500",
+    "name": "Ewing Ditch",
+    "found": true,
+    "summary": "Constructed in 1880 over Tennessee Pass, one of Colorado's oldest trans-basin diversions. Diverts water from Piney Creek (tributary of Eagle River) from Colorado River basin into Arkansas River basin. Yields approximately 900 to 1,000 acre-feet annually. Purchased by Pueblo Water from Otero Canal in 1954.",
+    "built": "1880",
+    "operator": "Pueblo Water",
+    "serves": "Arkansas River basin",
+    "facts": [
+      "One of Colorado's oldest transmountain diversions",
+      "Located at Tennessee Pass",
+      "Diversion amount varies year to year"
+    ],
+    "sources": [
+      "https://coyotegulch.blog/category/colorado-water/pueblo-board-of-water-works/",
+      "https://libguides.colostate.edu/water-history/arkansas-river",
+      "https://archaeologycolorado.org/sites/default/files/Holleran%202005%20Ditch%20Context%20reduced.pdf"
+    ]
+  },
+  "1100501": {
+    "wdid": "1100501",
+    "name": "Wurts Ditch",
+    "found": true,
+    "summary": "Constructed in 1929 at Tennessee Pass by William Richard Wurts as a 6-mile irrigation ditch. Extended in 1953 by Pueblo Water with additional 6.5 miles along the south flank of Eagle River valley. After extension has capacity of 100 cubic feet per second. Diverts water from Colorado River basin to Arkansas River basin.",
+    "built": "1929",
+    "operator": "Pueblo Water",
+    "serves": "Arkansas River basin",
+    "facts": [
+      "Pueblo Water extended it 6.5 miles westward in 1953",
+      "Located at Tennessee Pass"
+    ],
+    "sources": [
+      "https://www.alltrails.com/trail/us/colorado/wurts-ditch",
+      "https://www.hppr.org/hppr-news/2025-12-19/after-360-miles-of-whitewater-and-irrigation-the-arkansas-river-leaves-colorado-as-a-trickle",
+      "https://libguides.colostate.edu/water-history/arkansas-river"
+    ]
+  },
+  "1104613": {
+    "wdid": "1104613",
+    "name": "Homestake Tunnel",
+    "found": true,
+    "summary": "Transmountain tunnel transferring water from Homestake Creek and Eagle River tributaries on Colorado's west slope to Turquoise Lake near Leadville on the east slope. The 5.5-mile tunnel conveys water to the Arkansas River basin for use by Aurora and Colorado Springs. Joint project completed in 1967 following appropriation initiation in 1956.",
+    "built": "1967",
+    "operator": "Aurora and Colorado Springs",
+    "serves": "Aurora, Colorado Springs",
+    "facts": [
+      "Joint project of Aurora and Colorado Springs water utilities",
+      "First appropriation date September 5, 1956",
+      "5.5-mile tunnel conveying water across Continental Divide"
+    ],
+    "sources": [
+      "https://coloradosun.com/2019/08/22/homestake-aurora-colorado-springs-arkansas-river-dam/",
+      "https://arkvalleyvoice.com/homestake-project-aims-to-improve-arkansas-river-for-boaters-fish/",
+      "https://coyotegulch.blog/category/colorado-water/transmountaintransbasin-diversions/homestake-water-project/"
+    ]
+  },
+  "1104612": {
+    "wdid": "1104612",
+    "name": "Busk-Ivanhoe Tunnel",
+    "found": true,
+    "summary": "Historic railroad tunnel built in 1893 for the Colorado Midland Railroad, converted to water diversion in 1962. The tunnel diverts approximately 5,000 acre-feet annually from Ivanhoe Creek across the Continental Divide to Turquoise Reservoir in the Arkansas River basin. Co-owned by Aurora and Pueblo Board of Water Works.",
+    "built": "1893 (railroad), 1962 (water diversion)",
+    "operator": "Aurora (50%) and Pueblo Board of Water Works (50%)",
+    "serves": "Aurora, Pueblo",
+    "facts": [
+      "Originally Colorado Midland Railroad tunnel, 21 feet high and 15 feet wide",
+      "Used as Carlton Toll Tunnel for vehicle traffic 1922-1943 before permanent closure",
+      "Diverts approximately 5,000 acre-feet annually to East Slope"
+    ],
+    "sources": [
+      "https://en.wikipedia.org/wiki/Busk%E2%80%93Ivanhoe_Tunnel",
+      "https://www.auroragov.org/residents/water/water_system/recreation/busk_ivanhoe",
+      "https://aspenjournalism.org/crews-working-to-repair-busk-ivanhoe-transmountain-diversion/"
+    ]
+  },
+  "1104615": {
+    "wdid": "1104615",
+    "name": "Boustead Tunnel",
+    "found": true,
+    "summary": "Part of the Fryingpan-Arkansas Project, this 5.5-mile tunnel under the Continental Divide at Hagerman Pass conveys water from the Upper Fryingpan River and Hunter Creek to Turquoise Lake. Water serves cities on the southern Front Range including Colorado Springs, Pueblo, and La Junta. Tunnel opened in 1972 and is operated by the Bureau of Reclamation.",
+    "built": "1972",
+    "operator": "Bureau of Reclamation",
+    "serves": "Colorado Springs, Pueblo, La Junta",
+    "facts": [
+      "Named for Charles H. Boustead, first general manager of Southeastern Colorado Water Conservancy District",
+      "Part of Fryingpan-Arkansas Project constructed 1964-1981",
+      "Fed by system of 16 small diversion dams at elevations above 10,000 feet"
+    ],
+    "sources": [
+      "https://coyotegulch.blog/2012/08/15/fryingpan-arkansas-project-twin-lakes-and-the-boustead-tunnel-are-key-components/",
+      "https://en.wikipedia.org/wiki/Fryingpan%E2%80%93Arkansas_Project",
+      "https://www.usbr.gov/projects/index.php?id=460"
+    ]
+  },
+  "1104617": {
+    "wdid": "1104617",
+    "name": "Twin Lakes Tunnel",
+    "found": true,
+    "summary": "The Independence Pass Transmountain Tunnel system diverts water from the upper Roaring Fork River basin to Twin Lakes Reservoir in the Arkansas River basin. The 4-mile tunnel collects water from seven tributaries and diverts up to 46,000 acre-feet annually, with current operations averaging 38,000 acre-feet. Built 1933-1935 by Twin Lakes Reservoir and Canal Company.",
+    "built": "1933-1935",
+    "operator": "Twin Lakes Reservoir and Canal Company (owned by Aurora, Colorado Springs, Pueblo West, Pueblo)",
+    "serves": "Aurora, Colorado Springs, Pueblo West, Pueblo",
+    "facts": [
+      "Built with Reconstruction Finance Corporation loans during Great Depression",
+      "Agreement with Roaring Fork Water Users confirmed in 1933",
+      "Construction holed through in February 1935"
+    ],
+    "sources": [
+      "https://aspenjournalism.org/big-bore-in-hard-times/",
+      "https://aspenjournalism.org/silencing-the-roaring-fork-river/",
+      "https://en.wikipedia.org/wiki/Fryingpan%E2%80%93Arkansas_Project"
+    ]
+  },
+  "1104618": {
+    "wdid": "1104618",
+    "name": "Larkspur Ditch",
+    "found": true,
+    "summary": "Transmountain diversion that diverts water from Marshall Creek in the Gunnison River basin over Marshall Pass to the Arkansas River basin. Mean annual flow of 190 acre-feet serves Arkansas basin water users. Includes multiple structures such as Headgate No. 1 and Agate Creek Extension.",
+    "built": "1931",
+    "operator": "Larkspur, Inc.",
+    "serves": "Arkansas River basin",
+    "facts": [
+      "First appropriation date 1931",
+      "Diverts from Marshall Creek and Gunnison River tributaries",
+      "Multiple diversion structures in Gunnison and Saguache Counties"
+    ],
+    "sources": [
+      "https://schweich.com/coxbasinh20A.html",
+      "https://sciencepolicy.colorado.edu/admin/publication_files/resource-647-wwa_map_3.pdf",
+      "https://en.wikipedia.org/wiki/Marshall_Pass"
+    ]
+  },
+  "7900851": {
+    "wdid": "7900851",
+    "name": "Hudson Ditch",
+    "found": true,
+    "summary": "Diverts water from Hudson Branch of Medano Creek in the Rio Grande basin to a tributary in Huerfano County in the Arkansas River basin. Annual diversion of 352 acre-feet across a regional watershed divide. Established in 1892 during an early period of Colorado water development.",
+    "built": "1892",
+    "operator": null,
+    "serves": "Arkansas River basin",
+    "facts": [
+      "First appropriation date 1892",
+      "Diverts 352 acre-feet annually from Rio Grande basin",
+      "Associated with historical water development period"
+    ],
+    "sources": [
+      "https://schweich.com/coxbasinh20A.html",
+      "https://archaeologycolorado.org/sites/default/files/Holleran%202005%20Ditch%20Context_reduced.pdf"
+    ]
+  },
+  "7900968": {
+    "wdid": "7900968",
+    "name": "Medano Ditch",
+    "found": true,
+    "summary": "Diverts water from Medano Creek and Hudson Branch in the Rio Grande basin to Middle Bruff Creek in Huerfano County in the Arkansas River basin. Part of Colorado's early transmountain diversions in south-central Colorado between the Rio Grande and Arkansas watersheds.",
+    "built": null,
+    "operator": null,
+    "serves": "Arkansas River basin",
+    "facts": [
+      "Diverts from Medano Creek area in Rio Grande basin",
+      "Delivers to Middle Bruff Creek in Huerfano County",
+      "Part of interconnected Rio Grande-Arkansas diversion systems"
+    ],
+    "sources": [
+      "https://schweich.com/coxbasinh20A.html"
+    ]
+  },
+  "2600702": {
+    "wdid": "2600702",
+    "name": "Tarbell Ditch",
+    "found": true,
+    "summary": "Diverts water from Lake Fork Cochetopa Creek in the Gunnison River basin to Lake Fork of Saguache Creek within the Rio Grande basin. Water transfer within Rio Grande basin system between different tributaries at high elevation. Constructed in 1914.",
+    "built": "1914",
+    "operator": null,
+    "serves": "Rio Grande basin",
+    "facts": [
+      "Constructed in 1914",
+      "Diverts from Cochetopa Creek area in upper Gunnison basin"
+    ],
+    "sources": [
+      "https://schweich.com/coxbasinh20A.html",
+      "https://sciencepolicy.colorado.edu/admin/publication_files/resource-647-wwa_map_3.pdf"
+    ]
+  },
+  "2000920": {
+    "wdid": "2000920",
+    "name": "Tabor Ditch",
+    "found": true,
+    "summary": "Diverts water from tributaries of Cebolla Creek in the Gunnison River basin over Spring Creek Pass into Big Spring Creek in the Rio Grande basin. System capacity of approximately 30 cubic feet per second with typical annual diversions of 1,400 acre-feet. Constructed around 1910.",
+    "built": "1910",
+    "operator": null,
+    "serves": "Rio Grande basin",
+    "facts": [
+      "Constructed around 1910",
+      "Diverts approximately 1,400 acre-feet annually in typical year",
+      "Capacity of 30 cubic feet per second across Spring Creek Pass"
+    ],
+    "sources": [
+      "https://schweich.com/coxbasinh20A.html",
+      "https://pubs.usgs.gov/wdr/wdr-co-03-1/vol1/pdf/6_Other_Hydro.pdf"
+    ]
+  },
+  "2000922": {
+    "wdid": "2000922",
+    "name": "Weminuche Pass Ditch",
+    "found": true,
+    "summary": "Diverts water from tributaries of the Los Pinos River in the San Juan basin across Weminuche Pass to Weminuche Creek and Rio Grande Reservoir in the Rio Grande basin. Located in the high San Juan Mountains at the Continental Divide. Capacity of 1,325 acre-feet established in 1934.",
+    "built": "1934",
+    "operator": null,
+    "serves": "Rio Grande basin",
+    "facts": [
+      "Also called Raber Lohr Ditch",
+      "Capacity of 1,325 acre-feet established 1934",
+      "Located at Weminuche Pass in the San Juan Mountains"
+    ],
+    "sources": [
+      "https://schweich.com/coxbasinh20A.html",
+      "https://sciencepolicy.colorado.edu/admin/publication_files/resource-647-wwa_map_3.pdf"
+    ]
+  },
+  "2000919": {
+    "wdid": "2000919",
+    "name": "Pine River Weminuche Pass Ditch",
+    "found": true,
+    "summary": "Diverts approximately 481 acre-feet annually from the Pine River in the San Juan basin to the Rio Grande basin across the Weminuche Pass area. Part of Colorado's transmountain diversion infrastructure connecting the high southern mountains. Established in 1934.",
+    "built": "1934",
+    "operator": null,
+    "serves": "Rio Grande basin",
+    "facts": [
+      "Also called Fuchs Ditch",
+      "Established 1934",
+      "Diverts 481 acre-feet from Pine River to Rio Grande basin"
+    ],
+    "sources": [
+      "https://schweich.com/coxbasinh20A.html",
+      "https://sciencepolicy.colorado.edu/admin/publication_files/resource-647-wwa_map_3.pdf"
+    ]
+  },
+  "2000923": {
+    "wdid": "2000923",
+    "name": "Williams Creek-Squaw Pass Ditch",
+    "found": true,
+    "summary": "A trans-divide ditch diverting water from the Williams Creek drainage on the San Juan side over Squaw Pass into the Rio Grande basin for irrigation.",
+    "built": null,
+    "operator": null,
+    "serves": "Rio Grande valley irrigation",
+    "facts": [],
+    "sources": []
+  },
+  "2000917": {
+    "wdid": "2000917",
+    "name": "Don La Font Ditch No. 1",
+    "found": true,
+    "summary": "Located at Piedra Pass in Mineral County at high elevation (11,360 feet). Part of Colorado's transbasin water diversion system moving water from San Juan basin to Rio Grande.",
+    "built": null,
+    "operator": null,
+    "serves": "Rio Grande basin irrigation",
+    "facts": [
+      "Located at Piedra Pass at elevation 11,360 feet"
+    ],
+    "sources": [
+      "https://waterdata.usgs.gov/monitoring-location/USGS-09347000/"
+    ]
+  },
+  "2000918": {
+    "wdid": "2000918",
+    "name": "Don La Font Ditch No. 2",
+    "found": true,
+    "summary": "Second Don La Font diversion located at Piedra Pass in Mineral County, similar to Don La Font No. 1. High-elevation trans-divide structure diverting water from San Juan to Rio Grande basin.",
+    "built": null,
+    "operator": null,
+    "serves": "Rio Grande basin irrigation",
+    "facts": [
+      "Located at same Piedra Pass location as Don La Font No. 1",
+      "Part of a pair of ditches at the same pass"
+    ],
+    "sources": [
+      "https://waterdata.usgs.gov/monitoring-location/USGS-09347000/"
+    ]
+  },
+  "2000921": {
+    "wdid": "2000921",
+    "name": "Treasure Pass Ditch",
+    "found": true,
+    "summary": "Built in 1922 to divert water from the western slope over the Continental Divide at Wolf Creek Pass into the Rio Grande basin, serving irrigation needs in the San Luis Valley. One of a series of small trans-divide ditches.",
+    "built": "1922",
+    "operator": null,
+    "serves": "San Luis Valley irrigation",
+    "facts": [
+      "Built in 1922 to serve San Luis Valley irrigation",
+      "Located behind Wolf Creek Pass",
+      "Diverts approximately 125 acre-feet per year as measured by Parshall flume",
+      "Last of a half-dozen small trans-divide ditches along the Continental Divide between Wolf Creek and Spring Creek Pass"
+    ],
+    "sources": [
+      "https://clui.org/ludb/site/wolf-creek-pass"
+    ]
+  },
+  "3300533": {
+    "wdid": "3300533",
+    "name": "Pine Ridge Ditch",
+    "found": true,
+    "summary": "An exchange structure tied to the Animas-La Plata Project in the San Juan basin. The project stores Animas River water in Lake Nighthorse, which began filling in 2009 and first reached capacity in 2011.",
+    "built": null,
+    "operator": "Bureau of Reclamation / Animas-La Plata Project",
+    "serves": null,
+    "facts": [
+      "Part of the Animas-La Plata Project serving La Plata and Montezuma Counties",
+      "Lake Nighthorse capacity 123,541 acre-feet"
+    ],
+    "sources": [
+      "https://www.usbr.gov/uc/progact/animas/"
+    ]
+  },
+  "3304666": {
+    "wdid": "3304666",
+    "name": "Lightner Canal",
+    "found": false,
+    "summary": "",
+    "built": null,
+    "operator": null,
+    "serves": null,
+    "facts": [],
+    "sources": []
+  },
+  "3402001": {
+    "wdid": "3402001",
+    "name": "Sellars & McClane Supply Ditch",
+    "found": false,
+    "summary": "",
+    "built": null,
+    "operator": null,
+    "serves": null,
+    "facts": [],
+    "sources": []
+  },
+  "7100618": {
+    "wdid": "7100618",
+    "name": "Turkey Creek Ditch",
+    "found": true,
+    "summary": "Constructed in the late 1890s to supply irrigation water to the Summit Ridge area from Turkey Creek on the San Juan National Forest. Part of a network of over 20 miles of ditches feeding three reservoirs.",
+    "built": "late 1890s",
+    "operator": "Summit Reservoir & Irrigation Company",
+    "serves": "Irrigation of approximately 4,000 acres around Summit Ridge",
+    "facts": [
+      "Constructed in late 1890s for irrigation on Summit Ridge",
+      "Part of system providing 5,000 to 7,000 acre-feet of water annually",
+      "Over 20 miles of ditches originating on San Juan National Forest channel water into three reservoirs"
+    ],
+    "sources": [
+      "https://www.summitreservoir.com/history.html"
+    ]
+  },
+  "3204675": {
+    "wdid": "3204675",
+    "name": "Dolores Tunnel",
+    "found": true,
+    "summary": "A tunnel through the Dolores-San Juan divide near the town of Dolores, Colorado. The original tunnel was constructed 1886-1889, with the modern tunnel part of the Dolores Project completed in 1999. Diverts water from Dolores to San Juan basin.",
+    "built": "1886-1889; modern tunnel 1979-1999",
+    "operator": "Bureau of Reclamation / Dolores Project",
+    "serves": "Irrigation in San Juan basin and Montezuma County",
+    "facts": [
+      "Original tunnel by Montezuma Valley Irrigation Company completed 1886-1889, one mile long",
+      "Modern tunnel drilled near Dolores, 1 mile downstream from original",
+      "Maximum capacity of 520 cubic feet per second",
+      "Part of Dolores Project providing irrigation and flood control"
+    ],
+    "sources": [
+      "https://api.mountainscholar.org/server/api/core/bitstreams/507cc363-3c72-4b8f-8cd9-f25a33aac5f3/content",
+      "https://www.usbr.gov/projects/index.php?id=453"
+    ]
+  },
+  "3200815": {
+    "wdid": "3200815",
+    "name": "Great Cut Dike",
+    "found": true,
+    "summary": "An earth dike constructed in 1977 on the Dolores-San Juan divide as part of the Dolores Project. Water is released through the dike and the Dolores Tunnel for irrigation and municipal use in Montezuma County and the Ute Mountain Ute Tribe Reservation.",
+    "built": "1977-1979",
+    "operator": "Bureau of Reclamation / Dolores Project",
+    "serves": "Irrigation of 28,000 acres; Ute Mountain Ute Tribe water supply",
+    "facts": [
+      "Crest length 1,900 feet, crest width 30 feet, maximum height 64 feet",
+      "Volume approximately 189,000 cubic yards",
+      "Groundbreaking ceremony September 24, 1977 northwest of Cortez",
+      "Works in conjunction with Dolores Tunnel to deliver water to San Juan basin"
+    ],
+    "sources": [
+      "https://www.usbr.gov/projects/index.php?id=453"
+    ]
+  },
+  "3202006": {
+    "wdid": "3202006",
+    "name": "Dove Creek Pipeline",
+    "found": true,
+    "summary": "Part of the Dolores Project infrastructure, the Dove Creek Canal begins at the Great Cut Pumping Plant discharge and extends 32.8 miles northwest to deliver water for irrigation in the Dove Creek area and southwestern Colorado.",
+    "built": "1979-1999",
+    "operator": "Bureau of Reclamation / Dolores Project",
+    "serves": "Irrigation in Dove Creek area, Montezuma Valley, and Ute Mountain Ute Tribe Reservation",
+    "facts": [
+      "Canal (also called Dove Creek Pipeline) heads at Great Cut Pumping Plant discharge",
+      "Extends 32.8 miles northwest from Great Cut Dike",
+      "South Canal branch extends 6.9 miles with initial capacity 150 cubic feet per second",
+      "Part of larger Dolores Project system completed 1999"
+    ],
+    "sources": [
+      "https://www.doloreswater.com/infrastructure"
+    ]
+  },
+  "6804660": {
+    "wdid": "6804660",
+    "name": "Red Mountain Ditch",
+    "found": true,
+    "summary": "Diverts water from Mineral Creek in San Juan County to serve the City of Ouray as a replacement water source. The ditch delivers 3 cubic feet per second and is part of Ouray's augmentation plan. Water right decreed December 2013 for municipal use.",
+    "built": null,
+    "operator": "City of Ouray",
+    "serves": "City of Ouray municipal water supply",
+    "facts": [
+      "Located at Mineral Creek stream mile 9.26",
+      "Decree of 3.0 cfs for replacement source",
+      "Part of City of Ouray Augmentation Plan (effective March 13, 2017)"
+    ],
+    "sources": [
+      "https://dwr.state.co.us/Tools/Structures/6804660"
+    ]
+  },
+  "6804659": {
+    "wdid": "6804659",
+    "name": "Mineral Point Ditch",
+    "found": true,
+    "summary": "Historically diverted 11 cubic feet per second from the Animas River to the Uncompahgre River Basin for agricultural use. In 2025, the Bureau of Land Management acquired the water right for $297,000 to restore in-stream flow in Burrows Creek for heavy metal remediation at the Bonita Peak Mining District Superfund Site.",
+    "built": "1956",
+    "operator": null,
+    "serves": "Environmental remediation and in-stream flow restoration",
+    "facts": [
+      "Water right appropriated in 1956",
+      "Diverts 11 cfs from Animas River",
+      "BLM purchased the right in 2025 to support mine site remediation and restore Burrows Creek flows"
+    ],
+    "sources": [
+      "https://dwr.state.co.us/Tools/Structures/6804659",
+      "https://www.blm.gov/press-release/blm-acquires-mineral-point-ditch-water-rights-restore-burrows-creek",
+      "https://coyotegulch.blog/2025/05/03/bureau-of-land-management-restores-significant-water-right-north-of-silverton-mineral-point-ditch-once-diverted-11-cubic-feet-per-second-from-animasriver-the-durango-herald/"
+    ]
+  },
+  "6000669": {
+    "wdid": "6000669",
+    "name": "Leopard Creek Ditch",
+    "found": true,
+    "summary": "Small transbasin diversion from Leopard Creek in San Miguel County to the Gunnison River Basin for irrigation. The ditch diverts water from a tributary stream and has been in operation since 1887, with a 24-inch Parshall Flume measuring device installed in 1900.",
+    "built": "1887",
+    "operator": null,
+    "serves": "Irrigation",
+    "facts": [
+      "Water right appropriated June 20, 1887 with 4.821 cfs",
+      "Located in San Miguel County, Water District 60",
+      "24-inch Parshall Flume installed 1900 for measurement"
+    ],
+    "sources": [
+      "https://dwr.state.co.us/Tools/Structures/6000669"
+    ]
+  },
+  "6300593": {
+    "wdid": "6300593",
+    "name": "Gordon Granite Creek Ditch",
+    "found": true,
+    "summary": "Diverts water from Granite Creek in Mesa County for stock, municipal, and agricultural uses. The ditch holds two water rights totaling 16 cubic feet per second, with appropriations dating to 1948.",
+    "built": "1948",
+    "operator": null,
+    "serves": "Stock, municipal, and agricultural water supply",
+    "facts": [
+      "Two water rights: 2.0 cfs (May 1, 1948) and 14.0 cfs (May 2, 1948)",
+      "Located in Mesa County, Water District 63",
+      "Diverts from Granite Creek at stream mile 8.27"
+    ],
+    "sources": [
+      "https://dwr.state.co.us/Tools/Structures/6300593"
+    ]
+  },
+  "4200535": {
+    "wdid": "4200535",
+    "name": "Nellie S. Enlargement & Ext.",
+    "found": true,
+    "summary": "Ditch in Mesa County that diverts water from North East Creek for irrigation and domestic supply. The structure holds water rights totaling 8.64 cubic feet per second absolute and 4.86 cfs conditional, with appropriation dating to 1913.",
+    "built": "1913",
+    "operator": null,
+    "serves": "Irrigation and domestic water supply",
+    "facts": [
+      "Water right appropriated July 10, 1913",
+      "Net absolute: 8.64 cfs; conditional: 4.86 cfs",
+      "Located in Mesa County, Water District 42, diverts from North East Creek at stream mile 19.31"
+    ],
+    "sources": [
+      "https://dwr.state.co.us/Tools/Structures/4200535"
+    ]
+  },
+  "5804630": {
+    "wdid": "5804630",
+    "name": "Dome Creek Ditch",
+    "found": true,
+    "summary": "One of three major transbasin diversions exporting water from the Yampa River basin to the Colorado River drainage. The ditch diverts water from Dome Creek with a water right of 5 cubic feet per second, and has been operating since 1893.",
+    "built": "1893",
+    "operator": null,
+    "serves": "Transbasin transfer from Yampa to Colorado River basin",
+    "facts": [
+      "One of only three transbasin diversions from Yampa River to Colorado River",
+      "5.0 cfs net absolute; diverts from Dome Creek at stream mile 2.26"
+    ],
+    "sources": [
+      "https://dwr.state.co.us/Tools/Structures/5804630",
+      "https://dnrweblink.state.co.us/cwcb/ElectronicFile.aspx?docid=146636&dbid=0"
+    ]
+  },
+  "5804685": {
+    "wdid": "5804685",
+    "name": "Stillwater Ditch",
+    "found": true,
+    "summary": "Major transbasin diversion from the Yampa River basin to the Colorado River, operated by the Upper Yampa Water Conservancy District. Diverts water from Bear River at 30.83 cubic feet per second for irrigation and stock purposes. The ditch delivers water across Five Pines Mesa and was constructed in 1902.",
+    "built": "1902",
+    "operator": "Upper Yampa Water Conservancy District",
+    "serves": "Irrigation and livestock watering across Five Pines Mesa",
+    "facts": [
+      "Net absolute water right of 30.83 cfs (made absolute 07/05/1916)",
+      "One of only three Yampa River to Colorado River transbasin diversions",
+      "Delivers water from Yamcolo Reservoir and Stillwater Reservoir"
+    ],
+    "sources": [
+      "https://dwr.state.co.us/Tools/Structures/5804685",
+      "https://www.upperyampawater.gov/stillwater-ditch"
+    ]
+  },
+  "5804684": {
+    "wdid": "5804684",
+    "name": "Sarvis Ditch",
+    "found": true,
+    "summary": "Transbasin diversion from the Yampa River basin to the Colorado River, located in Grand County. Diverts water from Sarvis Creek with 43 cubic feet per second for irrigation and stock use. The ditch was appropriated in 1911 and is one of Colorado's three major Yampa-to-Colorado River diversions.",
+    "built": "1911",
+    "operator": null,
+    "serves": "Transbasin transfer from Yampa to Colorado River basin for irrigation",
+    "facts": [
+      "Water right appropriated May 24, 1911 with 43.0 cfs",
+      "One of only three Yampa River to Colorado River transbasin diversions",
+      "5-foot Parshall Flume installed March 2015 for measurement"
+    ],
+    "sources": [
+      "https://dwr.state.co.us/Tools/Structures/5804684"
+    ]
+  },
+  "3604677": {
+    "wdid": "3604677",
+    "name": "Climax Pipeline",
+    "found": true,
+    "summary": "Water pipeline associated with the Climax molybdenum mine near Leadville. In 1980 Climax buried the East Fork of the Arkansas River in a 7-foot pipeline for about 2,000 feet beneath mine waste.",
+    "built": "1980",
+    "operator": "Climax mine (Freeport McMoRan)",
+    "serves": "Climax molybdenum mine water supply and operations",
+    "facts": [
+      "Pipeline buried the East Fork of Arkansas River in 1980 under mining waste"
+    ],
+    "sources": [
+      "https://dwr.state.co.us/Tools/Structures/3604677",
+      "https://coloradosun.com/2025/09/07/reshaping-the-arkansas-river-into-a-colorado-success-after-a-century-of-abuse/"
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 # Summaries for a clicked NHDPlus reach and the river it belongs to.
 
 library(dplyr)
-library(ggplot2)
+library(plotly)
 
 #' NHDPlus uses -9998 and similar for missing values.
 nhd_na <- function(x) if_else(x < 0, NA_real_, as.numeric(x))
@@ -49,19 +49,21 @@ river_info_ui <- function(reach, flowlines) {
   )
 }
 
-#' Bar chart of NHDPlus estimated mean monthly flow for a reach.
-plot_reach_monthly <- function(reach) {
+#' Plotly bar chart of NHDPlus estimated mean monthly flow for a reach.
+plot_reach_monthly <- function(reach, dark = FALSE) {
   monthly <- tibble(
     month = factor(month.abb, levels = month.abb),
     flow  = nhd_na(unlist(sf::st_drop_geometry(reach)[sprintf("qe_%02d", 1:12)]))
   )
-  ggplot(monthly, aes(month, flow, fill = flow)) +
-    geom_col(width = 0.8, na.rm = TRUE) +
-    scale_fill_viridis_c(option = "mako", begin = 0.3, end = 0.85,
-                         guide = "none") +
-    scale_x_discrete(labels = substr(month.abb, 1, 1)) +
-    labs(x = NULL, y = "cfs", title = "Estimated mean monthly flow") +
-    theme_minimal(base_size = 11) +
-    theme(panel.grid.major.x = element_blank(),
-          plot.title = element_text(size = 10))
+  plot_ly(monthly, x = ~month, y = ~flow, type = "bar",
+          marker = list(color = viridisLite::mako(12, begin = 0.3, end = 0.85)[
+            rank(monthly$flow, ties.method = "first", na.last = "keep")]),
+          text = ~sprintf("%s: %s cfs", month, format(round(flow), big.mark = ",")),
+          hoverinfo = "text", textposition = "none") |>
+    layout(title = list(text = "Estimated mean monthly flow",
+                        font = list(size = 12), x = 0),
+           xaxis = list(title = ""), yaxis = list(title = "cfs"),
+           margin = list(t = 30, b = 20, l = 40, r = 10)) |>
+    style_plotly(dark) |>
+    layout(showlegend = FALSE)
 }

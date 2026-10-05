@@ -18,12 +18,18 @@ end_year <- if (nzchar(end_year_raw)) as.integer(end_year_raw) else year(Sys.Dat
 structures <- read_csv("data/structures.csv",
                        col_types = cols(.default = "c"))
 
-history <- fetch_monthly_many(structures$wdid, start_year, end_year) |>
-  mutate(year = as.integer(year), month = as.integer(month)) |>
+classes <- fetch_monthly_many(structures$wdid, start_year, end_year) |>
+  mutate(year = as.integer(year), month = as.integer(month))
+
+if (nrow(classes) == 0) stop("No monthly records returned")
+
+history <- monthly_total(classes) |>
   left_join(structures |> select(wdid, name, source_basin, is_transbasin),
             by = "wdid")
 
-if (nrow(history) == 0) stop("No monthly records returned")
+upsert_dataset(classes, "diversions_monthly_classes",
+               keys = c("wdid", "month_start", "wc_identifier"),
+               partitioning = "year")
 
 upsert_dataset(history, "diversions_monthly",
                keys = c("wdid", "month_start"), partitioning = "year")

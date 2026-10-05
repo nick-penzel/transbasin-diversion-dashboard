@@ -43,3 +43,24 @@ flowlines <- if (file.exists(flowlines_path)) {
   fl <- sf::st_read(flowlines_path, quiet = TRUE)
   fl[!sf::st_is_empty(fl), ]
 }
+
+#' Read a dataset if it has been built, else NULL.
+read_optional <- function(dataset) {
+  if (dir.exists(file.path(DATA_ROOT, dataset))) collect(read_ds(dataset))
+}
+
+flow_doy_stats <- read_optional("streamflow_doy_stats")
+water_rights   <- read_optional("reference/water_rights")
+
+# Researched history blurbs, curated by hand (tracked in git)
+profiles_path <- file.path(DATA_ROOT, "diversion_profiles.json")
+diversion_profiles <- if (file.exists(profiles_path)) {
+  jsonlite::read_json(profiles_path, simplifyVector = FALSE)
+} else {
+  list()
+}
+
+diversion_classes <- read_optional("diversions_monthly_classes")
+diversion_doy_stats <- read_optional("diversions_doy_stats")
+basin_outlets <- readr::read_csv(file.path(DATA_ROOT, "basin_outlets.csv"),
+                                 col_types = readr::cols(.default = "c"))
