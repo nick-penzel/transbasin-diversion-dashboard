@@ -12,6 +12,26 @@ read_ds <- function(dataset) {
   open_dataset(file.path(DATA_ROOT, dataset))
 }
 
+#' Whether a file or dataset exists under the data root, locally or on S3.
+root_exists <- function(path) {
+  path <- file.path(DATA_ROOT, path)
+  if (!startsWith(path, "s3://")) return(file.exists(path))
+  x <- FileSystem$from_uri(path)
+  x$fs$GetFileInfo(x$path)[[1]]$type != FileType$NotFound
+}
+
+#' Local path to a file under the data root, downloaded first if on S3.
+root_file <- function(path) {
+  path <- file.path(DATA_ROOT, path)
+  if (!startsWith(path, "s3://")) return(path)
+  dest <- tempfile(fileext = paste0(".", tools::file_ext(path)))
+  x <- FileSystem$from_uri(path)
+  stream <- x$fs$OpenInputFile(x$path)
+  on.exit(stream$close())
+  writeBin(as.raw(stream$Read()), dest)
+  dest
+}
+
 #' Most recent value per site within the last N_DAYS.
 latest_daily <- function(dataset, site_col) {
   cutoff <- Sys.Date() - N_DAYS
@@ -38,29 +58,55 @@ diversions_recent <- read_ds("diversions_daily") |>
   collect()
 latest_flows      <- latest_daily("streamflow_daily", "id")
 
-flowlines_path <- file.path(DATA_ROOT, "reference", "flowlines.geojson")
-flowlines <- if (file.exists(flowlines_path)) {
-  fl <- sf::st_read(flowlines_path, quiet = TRUE)
+flowlines <- if (root_exists("reference/flowlines.geojson")) {
+  fl <- sf::st_read(root_file("reference/flowlines.geojson"), quiet = TRUE)
   fl[!sf::st_is_empty(fl), ]
 }
 
 #' Read a dataset if it has been built, else NULL.
 read_optional <- function(dataset) {
-  if (dir.exists(file.path(DATA_ROOT, dataset))) collect(read_ds(dataset))
+  if (root_exists(dataset)) collect(read_ds(dataset))
 }
 
 flow_doy_stats <- read_optional("streamflow_doy_stats")
 water_rights   <- read_optional("reference/water_rights")
+reach_gage_distance <- read_optional("reference/reach_gage_distance")
+
+reservoirs <- read_optional("reference/reservoirs")
+reservoirs <- if (!is.null(reservoirs)) filter(reservoirs, !is.na(latitude))
+reservoir_storage <- read_optional("reservoir_storage_daily")
+if (!is.null(reservoir_storage)) {
+  reservoir_storage <- reservoir_storage |>
+    select(wdid, date, storage_af, provisional) |>
+    clean_storage(reservoirs)
+}
+reservoir_doy_stats <- read_optional("reservoir_doy_stats")
+
+# Daily gridMET climate for the 8 basin polygons (Daymet is stored too but
+# stops at the last calendar year and has no reference ET)
+climate_zones <- read_optional("reference/climate_zones")
+basin_climate <- if (root_exists("climate_daily")) {
+  read_ds("climate_daily") |>
+    filter(zone_type == "basin", source == "gridmet") |>
+    select(basin = zone_id, date, prcp_mm, eto_mm, tmax_c, tmin_c, vpd_kpa) |>
+    collect()
+}
+basin_climate_stats <- if (root_exists("climate_doy_stats")) {
+  read_ds("climate_doy_stats") |>
+    filter(source == "gridmet", variable %in% c("prcp_wy_mm", "eto_wy_mm")) |>
+    collect() |>
+    filter(zone_id %in% unique(basin_climate$basin)) |>
+    rename(basin = zone_id)
+}
 
 # Researched history blurbs, curated by hand (tracked in git)
-profiles_path <- file.path(DATA_ROOT, "diversion_profiles.json")
-diversion_profiles <- if (file.exists(profiles_path)) {
-  jsonlite::read_json(profiles_path, simplifyVector = FALSE)
+diversion_profiles <- if (root_exists("diversion_profiles.json")) {
+  jsonlite::read_json(root_file("diversion_profiles.json"), simplifyVector = FALSE)
 } else {
   list()
 }
 
 diversion_classes <- read_optional("diversions_monthly_classes")
 diversion_doy_stats <- read_optional("diversions_doy_stats")
-basin_outlets <- readr::read_csv(file.path(DATA_ROOT, "basin_outlets.csv"),
+basin_outlets <- readr::read_csv(root_file("basin_outlets.csv"),
                                  col_types = readr::cols(.default = "c"))

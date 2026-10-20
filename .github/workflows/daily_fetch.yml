@@ -1,50 +1,77 @@
-name: Daily fetch (diversions + streamflow)
+name: Daily fetch
 
-# Schedule disabled for Stage 1 (local storage). Re-enable in Stage 2 once
-# scripts write to S3.
+# Telemetry, streamflow, reservoir storage, and gridMET, written to S3.
+# Repo variables: AWS_REGION, TBD_BUCKET.
+# Repo secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (tbd-etl user, scoped
+# to the bucket), CDSS_API_KEY, API_USGS_PAT.
 on:
-  # schedule:
-  #   # 13:30 UTC = 7:30 AM Mountain (MDT) / 6:30 AM (MST).
-  #   - cron: '30 13 * * *'
+  schedule:
+    # 13:30 UTC = 7:30 AM Mountain (MDT) / 6:30 AM (MST).
+    - cron: '30 13 * * *'
   workflow_dispatch:
+    inputs:
+      start_date:
+        description: 'First date (YYYY-MM-DD). Blank for last 7 days.'
+        required: false
+        default: ''
+      end_date:
+        description: 'Last date (YYYY-MM-DD). Blank for today.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s3-writes
+  cancel-in-progress: false
 
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    timeout-minutes: 20
+    timeout-minutes: 45
+    env:
+      TBD_DATA_ROOT: s3://${{ vars.TBD_BUCKET }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      API_USGS_PAT: ${{ secrets.API_USGS_PAT }}
 
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up R
-        uses: r-lib/actions/setup-r@v2
+      - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
 
-      - name: Install R dependencies
-        uses: r-lib/actions/setup-r-dependencies@v2
+      - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           packages: |
             any::httr2
             any::dplyr
+            any::tidyr
             any::tibble
+            any::purrr
             any::lubridate
             any::readr
             any::arrow
-            any::piggyback
             any::dataRetrieval
             any::sf
+            any::terra
+
+      - name: Check arrow S3 support
+        run: Rscript -e 'stopifnot(arrow::arrow_with_s3())'
 
       - name: Write API key file
         run: echo "$CDSS_API_KEY" > scripts/api_key.txt
         env:
           CDSS_API_KEY: ${{ secrets.CDSS_API_KEY }}
 
+      - name: Sync tracked inputs the app reads
+        run: |
+          Rscript -e 'source("scripts/storage.R")
+            for (f in c("basin_outlets.csv", "diversion_profiles.json"))
+              put_file(file.path("data", f), dataset_path(f))'
+
       - name: Run daily fetch
-        env:
-          GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: Rscript scripts/daily_fetch.R
+        run: Rscript scripts/daily_fetch.R ${{ inputs.start_date }} ${{ inputs.end_date }}

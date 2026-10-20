@@ -1,0 +1,56 @@
+wdid,abbrev,name,source,rise_item_id,capacity_af,capacity_source
+5104055,GRARESCO,Lake Granby,rise,383,539758,Reclamation
+6203532,BLMRESCO,Blue Mesa Reservoir,rise,76,,
+6203545,,Morrow Point Reservoir,rise,592,117190,Reclamation
+6203578,,Crystal Reservoir,rise,274,,
+5903666,,Taylor Park Reservoir,cdss,,106230,Reclamation
+3803713,RUERESCO,Ruedi Reservoir,rise,711,102373,Reclamation
+6803675,,Ridgway Reservoir,rise,4834,84410,Reclamation
+4003416,,Paonia Reservoir,rise,4827,,
+4003553,,Crawford Reservoir,rise,128733,14395,Reclamation
+3903508,RIFRESCO,Rifle Gap Reservoir,rise,134092,13602,Reclamation
+7203844,,Vega Reservoir,rise,134101,33800,Reclamation
+3604512,DILRESCO,Dillon Reservoir,cdss,,257304,Denver Water
+3603543,GRERESCO,Green Mountain Reservoir,cdss,,153639,Reclamation
+5103709,WLFRESCO,Williams Fork Reservoir,cdss,,96822,Denver Water
+5103695,SHARESCO,Shadow Mountain Reservoir,cdss,,18369,Reclamation
+5103710,WILRESCO,Willow Creek Reservoir,cdss,,10553,Reclamation
+5003668,,Wolford Mountain Reservoir,cdss,,65985,Colorado River District
+3703519,HOMRESCO,Homestake Reservoir,cdss,,43600,Homestake Partners
+1103500,TURQLACO,Turquoise Lake,rise,814,129398,Reclamation
+1103503,TWIRESCO,Twin Lakes Reservoir,rise,818,141000,Reclamation
+1403526,,Pueblo Reservoir,rise,681,,
+6703512,JMRCADCO,John Martin Reservoir,cdss,,,
+1703525,MERRESCO,Lake Meredith,cdss,,,
+1703546,ADORESCO,Adobe Creek Reservoir (Blue Lake),cdss,,,
+7103614,MCPRESCO,McPhee Reservoir,rise,569,381051,Reclamation
+6003512,6003512A,Miramonte Reservoir,cdss,,,
+3103518,VALRESCO,Vallecito Reservoir,rise,831,,
+3003581,,Lemon Reservoir,rise,520,40146,Reclamation
+3003623,BASRESCO,Lake Nighthorse,rise,504,123541,Reclamation
+3403589,JACRESCO,Jackson Gulch Reservoir,rise,4277,9980,Reclamation
+2203574,PLARESCO,Platoro Reservoir,cdss,,,
+2003554,RIORESCO,Rio Grande Reservoir,cdss,,,
+2003536,CONRESCO,Continental Reservoir,cdss,,,
+2403576,SANRESCO,Sanchez Reservoir,cdss,,103155,Colorado Parks and Wildlife
+2103583,TERRESCO,Terrace Reservoir,cdss,,,
+5804213,,Stagecoach Reservoir,cdss,,,
+4403902,,Elkhead Reservoir,cdss,,25550,Colorado River District
+5804240,YAMRESCO,Yamcolo Reservoir,cdss,,9100,Upper Yampa WCD
+5803787,STELAKCO,Steamboat Lake,cdss,,,
+4703750,,Lake John,cdss,,,
+0303732,HORTOOCO,Horsetooth Reservoir,rise,86,156735,Reclamation
+0404513,CARTERCO,Carter Lake,rise,216,112230,Reclamation
+8003550,CHERESCO,Cheesman Reservoir,cdss,,79064,Denver Water
+2304013,SPIRESCO,Spinney Mountain Reservoir,cdss,,,
+0803514,CHARESCO,Chatfield Reservoir,cdss,,,
+0803532,CHRRESCO,Cherry Creek Reservoir,cdss,,,
+0803983,STRRESCO,Strontia Springs Reservoir,cdss,,7863,Denver Water
+0203903,,Standley Lake,cdss,,,
+0604199,GROSRECO,Gross Reservoir,cdss,,41811,Denver Water
+0504010,BRKDAMCO,Button Rock (Ralph Price) Reservoir,cdss,,16080,City of Longmont
+0503905,UNIRESCO,Union Reservoir,cdss,,,
+0404110,,Boyd Lake,cdss,,,
+0203837,,Barr Lake,cdss,,,
+0103816,,Empire Reservoir,cdss,,,
+0103651,,Riverside Reservoir,cdss,,,

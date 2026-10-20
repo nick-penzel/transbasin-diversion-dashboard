@@ -1,5 +1,5 @@
-# Colorado water dashboard. Map tab: rivers, diversions, and gages linked to
-# an info card and a diversion hydrograph. Gage tab: yearly hydrograph ridges.
+# Colorado water dashboard. Map tab: rivers, diversions, gages, and
+# reservoirs linked to an info card and a shared hydrograph. Gage tab: yearly hydrograph ridges.
 # Files in R/ are loaded automatically by shiny::runApp().
 
 library(shiny)
@@ -33,14 +33,40 @@ gage_points$basin <- basins$basin[suppressMessages(st_nearest_feature(
   basins
 ))]
 
+# Reservoirs: same nearest-basin assignment, then today's storage status
+reservoirs$basin <- basins$basin[suppressMessages(st_nearest_feature(
+  st_as_sf(reservoirs, coords = c("longitude", "latitude"), crs = 4326),
+  basins
+))]
+reservoir_points <- reservoir_status(reservoirs, reservoir_storage,
+                                     reservoir_doy_stats)
+basin_storage <- storage_by_wy(reservoir_storage, reservoirs)
+basin_climate_wy <- climate_by_wy(basin_climate, climate_zones)
+
+gage_points <- gage_points |>
+  mutate(pctile = if (is.null(flow_doy_stats)) NA_real_
+                  else flow_percentile(flow_cfs, min_cfs, p10_cfs, p25_cfs,
+                                       p50_cfs, p75_cfs, p90_cfs, max_cfs))
+if (!is.null(flowlines)) {
+  flowlines <- if (is.null(reach_gage_distance)) {
+    mutate(flowlines, pctile = NA_real_, n_gages = 0L, class = "unranked") |>
+      left_join(flow_classes, by = "class")
+  } else {
+    idw_flowlines(flowlines, gage_points, reach_gage_distance)
+  }
+}
+
 basin_transfers <- transfers_by_wy(
   history, collect(read_ds("diversions_daily")), structures
 )
 
-# Site picker values are "d:<wdid>" for diversions and "g:<id>" for gages
+# Site picker values are "d:<wdid>" for diversions, "g:<id>" for gages, and
+# "r:<wdid>" for reservoirs
+site_types <- c(d = "diversion", g = "gage", r = "reservoir")
 site_choices <- list(
   Diversions = setNames(paste0("d:", structures$wdid), structures$name),
-  `Stream gages` = setNames(paste0("g:", gages$id), gages$name)
+  `Stream gages` = setNames(paste0("g:", gages$id), gages$name),
+  Reservoirs = setNames(paste0("r:", reservoirs$wdid), reservoirs$name)
 )
 
 # ---- UI ----
@@ -48,12 +74,37 @@ ui <- page_navbar(
   id = "nav",
   title = "Colorado Water",
   theme = bs_theme(version = 5, preset = "flatly"),
+  header = tags$style(HTML("
+    .flow-anim { animation: flow-downstream 0.8s linear infinite; }
+    @keyframes flow-downstream { to { stroke-dashoffset: -16; } }
+    @media (prefers-reduced-motion: reduce) { .flow-anim { animation: none; } }
+    .leaflet-control-layers, .map-legend {
+      font-size: 11.5px; line-height: 1.35; border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25); border: none;
+    }
+    .leaflet-control-layers-expanded { padding: 6px 10px; }
+    .leaflet-control-layers-separator { margin: 4px -10px; }
+    .map-legend { background: rgba(255,255,255,0.92); padding: 8px 10px; }
+    .map-legend .lg-title { font-weight: 600; margin-bottom: 3px; }
+    .map-legend .lg-title.mt { margin-top: 6px; }
+    .map-legend .row-item { display: flex; align-items: center; gap: 6px; }
+    .map-legend .lg-grid { display: grid; grid-template-columns: auto auto; column-gap: 12px; }
+    .map-legend .sw { display: inline-block; width: 12px; height: 12px;
+                      border-radius: 50%; flex: none; }
+    .map-legend .lg-note { margin-top: 6px; color: #6c757d; max-width: 220px; }
+    [data-bs-theme=dark] .map-legend { background: rgba(33,37,41,0.92); color: #e9ecef; }
+    [data-bs-theme=dark] .map-legend .sw { box-shadow: 0 0 0 1px rgba(255,255,255,0.35); }
+    [data-bs-theme=dark] .leaflet-control-layers { background: #212529; color: #e9ecef; }
+    .leaflet-tooltip { font-size: 12px; }
+  ")),
   nav_panel(
     "Map",
     layout_columns(
       col_widths = c(8, 4),
-      card(full_screen = TRUE, leafletOutput("map", height = "520px")),
+      card(full_screen = TRUE, height = "620px",
+           card_body(padding = 0, leafletOutput("map", height = "100%"))),
       card(
+        height = "620px",
         card_header("Details"),
         card_body(fillable = FALSE,
                   uiOutput("info"),
@@ -63,7 +114,8 @@ ui <- page_navbar(
     card(
       layout_columns(
         col_widths = c(6, 6),
-        selectInput("site", "Site (or click the map)", choices = site_choices),
+        selectInput("site", "Site (or click the map)", choices = site_choices,
+                    selected = "g:USGS-09163500"),
         radioButtons("period", "Period", inline = TRUE,
                      choices = names(hydro_periods), selected = "Past year")
       ),
@@ -88,8 +140,8 @@ server <- function(input, output, session) {
 
   site <- reactive({
     req(input$site)
-    list(type = if (startsWith(input$site, "g:")) "gage" else "diversion",
-         id = sub("^[dg]:", "", input$site))
+    list(type = site_types[[substr(input$site, 1, 1)]],
+         id = substring(input$site, 3))
   })
   observeEvent(site(), {
     if (site()$type == "diversion") selected(site()$id)
@@ -105,6 +157,9 @@ server <- function(input, output, session) {
       selected_gage(click$id)
       updateSelectInput(session, "site", selected = paste0("g:", click$id))
       clicked(list(type = "gage", id = click$id))
+    } else if (identical(click$group, "Reservoirs")) {
+      updateSelectInput(session, "site", selected = paste0("r:", click$id))
+      clicked(list(type = "reservoir", id = click$id))
     }
   })
 
@@ -134,49 +189,64 @@ server <- function(input, output, session) {
     if (!is.null(flowlines)) {
       m <- m |>
         addPolylines(data = flowlines, layerId = ~comid,
-                     color = "#2c7fb8", opacity = 0.8,
-                     weight = ~pmax(0.6, (streamorde - 2) * 0.8),
-                     label = ~ifelse(is.na(gnis_name), "Unnamed", gnis_name),
-                     highlightOptions = highlightOptions(color = "#f28e2b",
-                                                         weight = 4),
+                     color = ~color, opacity = ~ifelse(streamorde <= 3, 0.45, 0.8),
+                     weight = ~pmax(0.5, (streamorde - 2) * 0.6),
+                     label = ~sprintf("%s: %s (est.)",
+                                      ifelse(is.na(gnis_name), "Unnamed", gnis_name),
+                                      label),
+                     highlightOptions = highlightOptions(color = "#222222",
+                                                         weight = 4, opacity = 1),
                      group = "Rivers")
     }
     # Basins go above rivers but stay non-interactive so river clicks pass through
     m |>
-      addPolygons(data = basins, fillColor = "#9ecae1", fillOpacity = 0.08,
-                  color = "#08306b", weight = 2.5, opacity = 0.8,
-                  dashArray = "6 4", group = "Basins",
+      # Pad the right edge so the state sits clear of the legend
+      fitBounds(-109.06, 36.99, -102.04, 41.0,
+                options = list(paddingBottomRight = c(210, 0))) |>
+      addPolygons(data = basins, fill = FALSE,
+                  color = "#4a5a70", weight = 1.2, opacity = 0.7,
+                  dashArray = "4 3", group = "Basins",
                   options = pathOptions(interactive = FALSE)) |>
       addLabelOnlyMarkers(data = basin_labels, label = ~basin, group = "Basins",
                           labelOptions = labelOptions(
                             noHide = TRUE, direction = "center", textOnly = TRUE,
                             style = list("font-weight" = "600",
-                                         "font-size" = "13px",
-                                         "color" = "#08306b",
-                                         "text-shadow" = "0 0 3px #fff, 0 0 3px #fff"))) |>
+                                         "font-size" = "11px",
+                                         "letter-spacing" = "0.04em",
+                                         "text-transform" = "uppercase",
+                                         "color" = "#4a5a70",
+                                         "text-shadow" = "0 0 3px rgba(255,255,255,0.9)"))) |>
       addCircleMarkers(
         data = diversion_points, layerId = ~wdid, group = "Diversions",
-        radius = ~pmax(4, sqrt(discharge_cfs), na.rm = TRUE),
-        color = ~ifelse(is_transbasin == "yes", "#440154", "#8c8c8c"),
-        fillOpacity = 0.7, weight = 1, label = ~name
+        radius = ~ifelse(is_transbasin == "yes", 4, 3),
+        fillColor = ~ifelse(is_transbasin == "yes", "#6a3d9a", "#9e9e9e"),
+        fillOpacity = 0.9, color = "#ffffff", weight = 1, label = ~name
+      ) |>
+      addCircleMarkers(
+        data = reservoir_points, layerId = ~wdid, group = "Reservoirs",
+        radius = ~4 + sqrt(capacity) / 90, fillColor = ~color, fillOpacity = 0.85,
+        color = "#1f2d50", weight = 2,
+        label = ~sprintf("%s: %s%% full (%s)", name, round(pct_full),
+                         format(date, "%b %d, %Y"))
       ) |>
       addCircleMarkers(
         data = gage_points, layerId = ~id, group = "Gages",
-        radius = 7, fillColor = ~color, fillOpacity = 0.95,
-        color = "#333333", weight = 1, label = ~name
+        radius = 5.5, fillColor = ~color, fillOpacity = 1,
+        color = "#ffffff", weight = 1.5, label = ~name
       ) |>
       addLayersControl(baseGroups = c("Esri light gray", "Esri dark gray", "OpenStreetMap"),
-                       overlayGroups = c("Rivers", "Basins", "Diversions", "Gages"),
-                       options = layersControlOptions(collapsed = TRUE)) |>
-      addLegend("bottomleft",
-                colors = c("#440154", "#8c8c8c"),
-                labels = c("Transbasin diversion", "Other diversion"),
-                opacity = 0.9, group = "Diversions") |>
-      addLegend("bottomright", colors = flow_classes$color,
-                labels = flow_classes$label, opacity = 0.95,
-                title = "Gage flow vs. this day in history",
-                group = "Gages")
+                       overlayGroups = c("Rivers", "Basins", "Gages", "Reservoirs",
+                                         "Diversions"),
+                       options = layersControlOptions(collapsed = FALSE)) |>
+      addControl(map_legend_html(), position = "bottomright", className = "")
   })
+
+  # Basemap follows the dark mode toggle
+  observeEvent(dark(), {
+    leafletProxy("map") |>
+      hideGroup(c("Esri light gray", "Esri dark gray", "OpenStreetMap")) |>
+      showGroup(if (dark()) "Esri dark gray" else "Esri light gray")
+  }, ignoreInit = TRUE)
 
   # Highlight the selected structure, or the whole river for a clicked reach
   observeEvent(list(site(), clicked()), {
@@ -185,11 +255,20 @@ server <- function(input, output, session) {
     if (!is.null(cl) && cl$type == "river") {
       reach <- flowlines[flowlines$comid == cl$id, ]
       river <- flowlines[flowlines$levelpathi == reach$levelpathi, ]
-      proxy |> addPolylines(data = river, color = "#f28e2b", weight = 4,
-                            opacity = 0.9, group = "highlight")
+      # SVG (not canvas) so CSS can animate dashes; lines run upstream to
+      # downstream, so the dashes move with the current
+      svg <- pathOptions(interactive = FALSE, renderer = JS("L.svg()"))
+      proxy |>
+        addPolylines(data = river, color = "#08306b", weight = 6,
+                     opacity = 0.9, group = "highlight", options = svg) |>
+        addPolylines(data = river, color = "#ffffff", weight = 2.5,
+                     opacity = 1, dashArray = "6 10", group = "highlight",
+                     options = modifyList(svg, list(className = "flow-anim")))
     }
-    sel <- if (site()$type == "gage") filter(gage_points, id == site()$id)
-           else filter(structures, wdid == site()$id)
+    sel <- switch(site()$type,
+                  gage = filter(gage_points, id == site()$id),
+                  reservoir = filter(reservoir_points, wdid == site()$id),
+                  filter(structures, wdid == site()$id))
     proxy |> addCircleMarkers(data = sel, lng = ~longitude, lat = ~latitude,
                               group = "highlight", radius = 12,
                               color = "#f28e2b", fillOpacity = 0, weight = 3)
@@ -198,10 +277,7 @@ server <- function(input, output, session) {
   # ---- Info card ----
   output$info <- renderUI({
     cl <- clicked()
-    if (is.null(cl)) {
-      return(p(class = "text-muted",
-               "Click a river, diversion, or gage on the map."))
-    }
+    if (is.null(cl)) return(statewide_ui(gage_points, reservoir_points))
     switch(
       cl$type,
       river = river_info_ui(flowlines[flowlines$comid == cl$id, ], flowlines),
@@ -216,6 +292,7 @@ server <- function(input, output, session) {
           actionLink("open_diversion", "View diversion details")
         )
       },
+      reservoir = reservoir_info_ui(filter(reservoir_points, wdid == cl$id)),
       gage = {
         g <- filter(gage_points, id == cl$id)
         tagList(
@@ -253,6 +330,17 @@ server <- function(input, output, session) {
 
   output$hydrograph <- renderPlotly({
     sv <- site()
+    if (sv$type == "reservoir") {
+      r <- filter(reservoir_points, wdid == sv$id)
+      stats <- reservoir_doy_stats |>
+        filter(wdid == sv$id) |>
+        rename_with(\(x) sub("_af$", "_cfs", x))
+      return(plot_site_hydrograph(series(), stats, r$name,
+                                  days = hydro_periods[[input$period]],
+                                  dark = dark(), units = "AF",
+                                  y_title = "Storage (acre-feet)",
+                                  capacity = r$capacity))
+    }
     if (sv$type == "gage") {
       stats <- if (!is.null(flow_doy_stats)) filter(flow_doy_stats, id == sv$id)
       title <- gages$name[gages$id == sv$id]
@@ -265,7 +353,9 @@ server <- function(input, output, session) {
   })
 
   joyplot_server("joy", gages, selected_gage, dark)
-  basin_server("basin", basin_outlets, basin_transfers, gage_points, dark)
+  basin_server("basin", basin_outlets, basin_transfers, gage_points,
+               reservoir_points, basin_storage, basin_climate_wy, basin_climate,
+               basin_climate_stats, dark)
   diversion_server("div", structures, history, diversion_classes,
                    diversions_recent, normals, water_rights,
                    diversion_profiles, selected, dark)

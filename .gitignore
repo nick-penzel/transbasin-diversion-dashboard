@@ -11,3 +11,5 @@ nisp.qmd
 
 # ETL output (Stage 1 local storage)
 data/*/
+
+.DS_Store

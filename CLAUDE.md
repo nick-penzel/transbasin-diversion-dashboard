@@ -25,16 +25,21 @@ Scripts run from the **repo root**. The Shiny app runs with **`shiny_app/`** as 
 ``` bash
 Rscript scripts/build_reference.R          # structure + gage coordinates (rerun when the CSVs change)
 MIN_STREAM_ORDER=3 Rscript scripts/build_hydrofabric.R  # NHDPlus flowlines for CO, ~20 min
-Rscript scripts/daily_fetch.R [START] [END] # telemetry + streamflow, default last 7 days
+Rscript scripts/build_reach_network.R      # along-river reach-to-gage distances, ~20 s
+Rscript scripts/daily_fetch.R [START] [END] # telemetry, streamflow, reservoir storage, default last 7 days; gridMET last 75 days
 STREAMFLOW_START_YEAR=1990 Rscript scripts/backfill_streamflow.R
 BACKFILL_START_YEAR=1985 BACKFILL_END_YEAR=2025 Rscript scripts/backfill_history.R
 Rscript scripts/backfill_daily_records.R   # official daily diversion records (divrecday), ~6 min
-Rscript scripts/build_flow_stats.R         # day-of-year percentiles for gages and diversions
+RESERVOIR_START_YEAR=1980 Rscript scripts/backfill_reservoirs.R  # daily reservoir storage
+Rscript scripts/build_flow_stats.R         # day-of-year percentiles for gages, diversions, reservoirs, climate
 Rscript scripts/build_water_rights.R       # CDSS net amount rights for each structure
+Rscript scripts/build_climate_zones.R      # HUC8 + basin zones and Daymet cell weights, ~1 min
+CLIMATE_SOURCE=daymet CLIMATE_START_YEAR=1980 CLIMATE_END_YEAR=2025 Rscript scripts/backfill_climate.R  # Daymet zone means, ~2 min per year
+CLIMATE_SOURCE=gridmet CLIMATE_START_YEAR=1979 Rscript scripts/backfill_climate.R  # gridMET zone means to yesterday, ~15 min
 Rscript -e 'shiny::runApp("shiny_app")'
 ```
 
-Full rebuild order: `build_reference` → `backfill_streamflow` → `backfill_history` → `backfill_daily_records` → `build_flow_stats` → `build_water_rights` (`build_hydrofabric` is independent). Day to day only `daily_fetch` is needed; rerun the records backfills and `build_flow_stats` every few months since approved records lag about a year.
+Full rebuild order: `build_reference` → `backfill_streamflow` → `backfill_history` → `backfill_daily_records` → `backfill_reservoirs` → `build_flow_stats` → `build_water_rights` (`build_hydrofabric` is independent; rerun `build_reach_network` after it or after the gage list changes; `build_climate_zones` → `backfill_climate` (both sources) → `build_flow_stats` is the climate chain; Daymet only needs a rerun each spring when the prior year is released, and `daily_fetch` keeps gridMET current). Day to day only `daily_fetch` is needed; rerun the records backfills and `build_flow_stats` every few months since approved records lag about a year.
 
 -   CDSS API key: fetch scripts read `scripts/api_key.txt` when sourced (gitignored). In CI it is written from the `CDSS_API_KEY` secret.
 -   No test suite, linter, or package structure (no DESCRIPTION/renv). Verify by running scripts on a short range and checking row counts, dates, and NAs.
@@ -60,10 +65,27 @@ Write using the tidyverse style. When generating text, avoid em dashes and other
 | `reference/water_rights` | wdid, right_wdid, admin_number | none |
 | `reference/structures`, `reference/gages` | | none (with lat/long) |
 | `reference/flowlines.geojson` | comid | none |
+| `reference/reach_gage_distance` | comid, gage_id | none |
+| `reservoir_storage_daily` | wdid, date | year |
+| `reservoir_doy_stats` | wdid, mmdd | none |
+| `reference/reservoirs` | wdid | none (with lat/long) |
+| `climate_daily` | zone_id, date, source | year |
+| `climate_doy_stats` | zone_id, source, variable, mmdd | none |
+| `reference/climate_zones` (+ `.geojson`) | zone_id | none |
+| `reference/daymet_weights` | zone_id, cell | none |
 
-Output under `data/*/` is gitignored. Input CSVs (`data/structures.csv`, `data/stream_gages.csv`) and the hand-curated `data/diversion_profiles.json` (researched history blurbs with sources) are tracked.
+Output under `data/*/` is gitignored. Input CSVs (`data/structures.csv`, `data/stream_gages.csv`, `data/reservoirs.csv`) and the hand-curated `data/diversion_profiles.json` (researched history blurbs with sources) are tracked.
 
 **Gage network** (`data/stream_gages.csv`, 50 sites): the original 16 plus, for each HUC8 in Colorado, the most downstream active USGS stream gage with drainage area ≥ 50 mi² and record since 2000 or earlier, plus CDSS Rio Grande gages (Del Norte, Mogote) because USGS has none there. Arkansas River at Holly was swapped for Arkansas River near Granada because the USGS API has no Holly history before 2023. All USGS sites are fetched in one batched request per date range.
+
+**Reservoirs** (`data/reservoirs.csv`, 55 major reservoirs): `source = rise` reads daily storage from Reclamation RISE (`rise_item_id` is the catalog item for "Daily Lake/Reservoir Storage-af", found via location → catalog-record → catalog-item); `source = cdss` reads CDSS `structures/divrec/stagevolume` (approved, lags about a year, many only at month end) with `STORAGE` telemetry filling days with no record. `capacity_af` is curated from published figures (spot-check them); where blank, the app uses the largest value on record. Values above 110% of capacity are dropped as recording errors (CDSS has some, e.g. Rampart at 26 million AF). Not included: Trinidad (no data since 2010), Elevenmile, and the plains reservoirs CDSS doesn't list as active reservoirs.
+
+**Climate** (`scripts/fetch_daymet.R`, `fetch_gridmet.R`, `build_climate_zones.R`, `backfill_climate.R`): two gridded products reduced to area-weighted daily means for 100 zones: the in-state part of each of 92 HUC8s (`zone_type = huc8`) and the 8 basin polygons (`zone_type = basin`). Both live in `climate_daily`, told apart by `source`, with one shared set of columns (`prcp_mm`, `tmax_c`, `tmin_c`, `swe_mm`, `eto_mm`, `vpd_kpa`; NA where a product lacks the variable).
+
+-   `source = daymet`: 1 km, 1980 to last calendar year, prcp/tmax/tmin/swe. `build_climate_zones` computes the fraction of each grid cell inside each zone once (`reference/daymet_weights`, with the 0-based grid window `x0..x1`, `y0..y1`); the backfill subsets Colorado server-side over Earthdata OPeNDAP (four variables in parallel) and each year is one sparse matrix product.
+-   `source = gridmet`: about 4 km, 1979 to yesterday, prcp/tmax/tmin plus grass reference ET (`eto_mm`, Penman-Monteith) and mean vapor pressure deficit. Fetched from the Northwest Knowledge Network THREDDS subset service (no login); weights are computed on the fly from the first file and scaled by cell area because the grid is in degrees. This is the source the app and the current water year use.
+
+HUC8s get a `basin` only when most of their area is inside a basin polygon; 24 are NA because the basin polygons leave out the Republican, Smoky Hill, Cimarron, Laramie, and a few border drainages. `build_flow_stats` writes `climate_doy_stats` in long form per source (`variable` = `tmax_c`, `tmin_c`, `vpd_kpa`, `swe_mm`, `prcp_wy_mm`, `eto_wy_mm`): the `_wy_` variables are running totals since October 1 over complete water years (daily precipitation is mostly zeros), the rest are ranked by calendar day. The app reads only the gridMET basin series; the HUC8 series and Daymet are stored but not shown yet.
 
 **Fetch modules** (`scripts/fetch_*.R`, `get_structures.R`): each defines a single-item fetch function and a `*_many` wrapper that loops with `Sys.sleep()` rate limiting and `tryCatch` so one failed site doesn't abort the run. Fetch functions return tibbles and never write files.
 
@@ -75,10 +97,10 @@ Output under `data/*/` is gitignored. Input CSVs (`data/structures.csv`, `data/s
 
 **Shiny app** (`shiny_app/`): `R/shiny_data_source.R` opens the datasets from `TBD_DATA_ROOT` (default `../data`). Files in `shiny_app/R/` are auto-loaded by `runApp()` (don't also `source()` them). `app.R` is a `bslib` navbar with four tabs, each tab's server logic in its own module:
 
--   **Map**: clickable NHDPlus reaches (EROM flow stats), diversions, and gages colored by flow percentile; one info card; the shared hydrograph below follows map clicks.
+-   **Map**: clickable NHDPlus reaches (EROM flow stats), diversions, gages colored by flow percentile, and reservoirs colored by storage percentile (size by capacity); an expanded layer control toggles each group and its legend; one info card; the shared hydrograph below follows map clicks.
 -   **Gage hydrographs** (`R/mod_joyplot.R`): one ridge per year of daily flow, current year highlighted, filters for years, months, and calendar or water year.
 -   **Diversions** (`R/mod_diversion.R`): curated profile, value boxes, shared hydrograph, annual volume by use, typical month, decreed rights.
--   **Basins** (`R/mod_basin.R`): see above.
+-   **Basins** (`R/mod_basin.R`): see above, plus storage today, water-year reservoir storage change (Sep 30 to Sep 30, ±15 days) in the accounting chart, a reservoir table, and three gridMET climate cards: water-year precipitation with reference ET and a runoff ratio (outflow plus exports minus imports over precipitation volume, blank where that is negative), running water-year-to-date precipitation or reference ET against past-year percentiles, and water-year mean temperature with vapor pressure deficit.
 
 Charts are plotly; `R/plotly_theme.R` styles them for the `input_dark_mode()` toggle (pass the `dark` reactive into modules). Basemaps: Esri light gray, Esri dark gray (direct tile URL, not in `leaflet::providers`), OpenStreetMap; CARTO tiles now need an API key. The Map tab's ~18k reaches take about 10 s to render at startup and block other outputs in that session until done. `shiny_app/data/structure_meta.csv`, `structures.geojson`, `stream_gages.csv`, and `shiny_app/cache/` are leftovers from the GitHub Release setup and are no longer read.
 
@@ -92,6 +114,13 @@ Charts are plotly; `R/plotly_theme.R` styles them for the `input_dark_mode()` to
 -   Water rights `decreedUnits` come back as `C` (cfs) and `A` (acre-feet); `adminNumber` lower = more senior. Rights are looked up at both `wdid` and `wdid_pod`.
 -   Daily diversion records (`divrecday`, approved, lag about a year) go back to ~1989 for most structures; `daily_total()` picks `S:X U:Q T:0`, then "Total (Diversion)", then the largest class. Ditches mostly record only in their season, so missing days are "no record", not zero. Diversion daily normals pool ±7 days across years and need ≥ 5 years; gage normals use the exact calendar day (USGS method).
 -   USGS Water Data API needs `API_USGS_PAT` in `~/.Renviron`. Without it the anonymous hourly limit is hit quickly and httr2 sleeps for the server's `Retry-After` with no cap, which looks like a 10 to 30 minute hang. Watch long pulls and kill them if a step stalls.
+-   Daymet gridded files need a NASA Earthdata Login: `EARTHDATA_TOKEN` in `~/.Renviron` (generate at urs.earthdata.nasa.gov, expires after 60 days). The old ORNL THREDDS URLs redirect to `opendap.earthdata.nasa.gov` and return 401 without it. The single-pixel API (`daymet.ornl.gov/single-pixel/api/data`) needs no auth and is handy for spot checks.
+-   Daymet OPeNDAP subsets must include the `x`, `y`, and `lambert_conformal_conic` variables in the `dap4.ce` constraint. Without them GDAL reads the rows south to north and zone means come out plausible but wrong (north and south swapped).
+-   Daymet years always have 365 days; leap years drop December 31, so that date is missing, not zero. Daymet `swe` is a simple model output and weak in the Rockies; treat SNOTEL as the snow source when it arrives.
+-   Daymet's Lambert conformal grid is not equal-area: a nominal 1 km cell covers about 1.09 km² on the ground in Colorado. Zone means are unaffected; use `area_km2` (geodesic) from `reference/climate_zones` for volumes (1 mm over 1 km² = 0.8107 AF).
+-   gridMET days end at midnight Mountain Standard Time; values after `last_permanent_slice` in the file metadata (roughly the last two months) are provisional, so `daily_fetch` re-pulls 75 days. Temperatures arrive in Kelvin. Requests past the last available day are clamped, not errors. Its THREDDS subset service returns classic NetCDF only (`accept=netcdf`; `netcdf4` gives a 500).
+-   Every Parquet file in `climate_daily` must carry the same columns: `open_dataset()` takes its schema from the first file and silently drops columns that file lacks. Both fetch modules emit the full column set for that reason.
+-   gridMET and Daymet agree closely on basin temperature but differ on mountain precipitation (Colorado basin 2024: 580 vs 641 mm), so do not splice them into one series.
 -   Gage colors follow USGS WaterWatch: today's flow vs. same calendar day in prior years (≥ 10 years required), classes <10, 10 to 24, 25 to 75, 76 to 90, >90 percentile plus record high/low. History starts in 1990, so percentiles are based on that period, not the full record.
 -   CDSS `telemetrytimeseriesday` ignores `min-measDate`/`max-measDate` and returns the last year; use `startDate`/`endDate`. Other endpoints (`surfacewatertsday`, `divrecmonth`) accept `min-`/`max-` params.
 -   CDSS returns HTTP 404 when a station has no data in the requested range; treat it as empty, not as an outage.

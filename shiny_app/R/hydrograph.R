@@ -1,7 +1,8 @@
-# Shared daily hydrograph for a gage or diversion: observed daily flow over
-# day-of-year percentile bands, with gaps shown explicitly. Diversions use
-# official daily records, then provisional telemetry after the records end,
-# and monthly means before daily records begin.
+# Shared daily hydrograph for a gage, diversion, or reservoir: observed daily
+# values over day-of-year percentile bands, with gaps shown explicitly.
+# Diversions use official daily records, then provisional telemetry after the
+# records end, and monthly means before daily records begin. Reservoirs show
+# storage, split into approved and provisional values.
 
 library(dplyr)
 library(plotly)
@@ -19,8 +20,17 @@ site_series <- function(type, id) {
       arrange(x)
     return(list(daily = daily, telemetry = NULL, monthly = NULL))
   }
+  if (type == "reservoir") {
+    s <- reservoir_storage |>
+      filter(wdid == !!id) |>
+      transmute(x = date, y = storage_af, provisional) |>
+      arrange(x)
+    return(list(daily = select(filter(s, !provisional), x, y),
+                telemetry = select(filter(s, provisional), x, y),
+                monthly = NULL))
+  }
 
-  records <- if (dir.exists(file.path(DATA_ROOT, "diversions_daily_records"))) {
+  records <- if (root_exists("diversions_daily_records")) {
     read_ds("diversions_daily_records") |>
       filter(wdid == !!id) |>
       transmute(x = date, y = discharge_cfs) |>
@@ -66,8 +76,13 @@ in_window <- function(df, start, step = "day") {
 }
 
 #' Plotly hydrograph for one site over the last `days` days.
+#'
+#' @param units hover units; reservoirs pass "AF" and their stats renamed to
+#'   the `*_cfs` columns.
+#' @param capacity optional value drawn as a dashed line.
 plot_site_hydrograph <- function(series, stats, title, days = 365,
-                                 dark = FALSE) {
+                                 dark = FALSE, units = "cfs",
+                                 y_title = "Discharge (cfs)", capacity = NULL) {
   all_x <- c(series$daily$x, series$telemetry$x, series$monthly$x)
   validate(need(length(all_x) > 0, "No data for this site."))
   end   <- max(all_x)
@@ -95,20 +110,20 @@ plot_site_hydrograph <- function(series, stats, title, days = 365,
                   line = list(width = 0), hoverinfo = "skip") |>
       add_lines(data = bands, x = ~x, y = ~p50_cfs, name = "Median for the day",
                 line = list(color = "grey", dash = "dash", width = 1),
-                hovertemplate = "Median: %{y:,.1f} cfs<extra></extra>")
+                hovertemplate = paste0("Median: %{y:,.1f} ", units, "<extra></extra>"))
   }
   if (has(monthly)) {
     p <- p |>
       add_lines(data = monthly, x = ~x, y = ~y, name = "Monthly mean (records)",
                 line = list(color = blue, width = 1.5, dash = "dashdot"),
-                hovertemplate = "Monthly mean: %{y:,.1f} cfs<extra></extra>")
+                hovertemplate = paste0("Monthly mean: %{y:,.1f} ", units, "<extra></extra>"))
   }
   if (has(daily)) {
     p <- p |>
       add_lines(data = daily, x = ~x, y = ~y, connectgaps = FALSE,
                 name = if (has(telemetry)) "Daily (approved records)" else "Daily",
                 line = list(color = blue, width = 1.3),
-                hovertemplate = "Daily: %{y:,.1f} cfs<extra></extra>") |>
+                hovertemplate = paste0("Daily: %{y:,.1f} ", units, "<extra></extra>")) |>
       add_lines(data = gap_bridges(daily), x = ~x, y = ~y,
                 name = "No record (gap)", legendgroup = "gap",
                 line = list(color = blue, width = 1, dash = "dot"),
@@ -117,9 +132,10 @@ plot_site_hydrograph <- function(series, stats, title, days = 365,
   if (has(telemetry)) {
     p <- p |>
       add_lines(data = telemetry, x = ~x, y = ~y, connectgaps = FALSE,
-                name = "Daily (provisional telemetry)",
+                name = if (units == "AF") "Daily (provisional)" else "Daily (provisional telemetry)",
                 line = list(color = green, width = 1.3),
-                hovertemplate = "Telemetry: %{y:,.1f} cfs<extra></extra>") |>
+                hovertemplate = paste0(if (units == "AF") "Provisional" else "Telemetry",
+                                       ": %{y:,.1f} ", units, "<extra></extra>")) |>
       add_lines(data = gap_bridges(telemetry), x = ~x, y = ~y,
                 legendgroup = "gap", showlegend = !has(daily),
                 name = "No record (gap)",
@@ -127,10 +143,17 @@ plot_site_hydrograph <- function(series, stats, title, days = 365,
                 opacity = 0.5, hoverinfo = "skip")
   }
 
+  if (!is.null(capacity) && !is.na(capacity)) {
+    p <- p |>
+      add_lines(x = c(start, end), y = c(capacity, capacity), name = "Capacity",
+                line = list(color = "#b35806", dash = "dash", width = 1),
+                hovertemplate = paste0("Capacity: %{y:,.0f} ", units, "<extra></extra>"))
+  }
+
   p |>
     layout(title = list(text = title, x = 0),
            xaxis = list(title = "", hoverformat = "%b %d, %Y"),
-           yaxis = list(title = "Discharge (cfs)", rangemode = "tozero"),
+           yaxis = list(title = y_title, rangemode = "tozero"),
            hovermode = "x unified",
            margin = list(t = if (is.null(title)) 10 else 40)) |>
     style_plotly(dark)

@@ -68,8 +68,8 @@ vb <- function(title, out_id, icon) {
   bslib::value_box(
     title, textOutput(out_id, inline = TRUE),
     p(class = "small mb-0", textOutput(paste0(out_id, "_note"), inline = TRUE)),
-    showcase = bsicons::bs_icon(icon, size = "1.75rem"),
-    showcase_layout = "left center"
+    showcase = bsicons::bs_icon(icon, size = "1.4rem"),
+    showcase_layout = "top right", height = "120px"
   )
 }
 

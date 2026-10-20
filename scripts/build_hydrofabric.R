@@ -65,9 +65,8 @@ flowlines <- flowlines |>
   filter(!st_is_empty(flowlines)) |>
   st_cast("MULTILINESTRING")
 
-path <- dataset_path("reference")
-dir.create(path, recursive = TRUE, showWarnings = FALSE)
-out <- file.path(path, "flowlines.geojson")
-st_write(flowlines, out, delete_dsn = TRUE, quiet = TRUE,
-         layer_options = "COORDINATE_PRECISION=5")
+out <- file.path(dataset_path("reference"), "flowlines.geojson")
+tmp <- tempfile(fileext = ".geojson")
+st_write(flowlines, tmp, quiet = TRUE, layer_options = "COORDINATE_PRECISION=5")
+put_file(tmp, out)
 message(sprintf("Wrote %d flowlines to %s", nrow(flowlines), out))

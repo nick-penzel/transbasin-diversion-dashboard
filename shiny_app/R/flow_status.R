@@ -1,18 +1,18 @@
 # Classify current gage flow against day-of-year history, following the
-# USGS WaterWatch percentile classes and colors.
+# USGS WaterWatch percentile classes (colors softened from the WaterWatch set).
 
 library(dplyr)
 
 flow_classes <- tibble::tribble(
-  ~class,       ~label,                         ~color,
-  "high",       "Record high for the day",      "#000000",
-  "much_above", "Much above normal (>90th)",    "#0000ff",
-  "above",      "Above normal (76th to 90th)",  "#40dfd0",
-  "normal",     "Normal (25th to 75th)",        "#00ff00",
-  "below",      "Below normal (10th to 24th)",  "#ffa400",
-  "much_below", "Much below normal (<10th)",    "#ff0000",
-  "low",        "Record low for the day",       "#8b0000",
-  "unranked",   "Not ranked",                   "#b0b0b0"
+  ~class,       ~label,                         ~short,          ~color,
+  "high",       "Record high for the day",      "Record high",   "#1b2a6b",
+  "much_above", "Much above normal (>90th)",    "> 90th",        "#3b6fd4",
+  "above",      "Above normal (76th to 90th)",  "76th to 90th",  "#5cc0d2",
+  "normal",     "Normal (25th to 75th)",        "25th to 75th",  "#5fbf6a",
+  "below",      "Below normal (10th to 24th)",  "10th to 24th",  "#f0b041",
+  "much_below", "Much below normal (<10th)",    "< 10th",        "#e05038",
+  "low",        "Record low for the day",       "Record low",    "#8a1c12",
+  "unranked",   "Not ranked",                   "Not ranked",    "#bdbdbd"
 )
 
 #' Percentile class for each flow given that day's historical stats.

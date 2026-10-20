@@ -28,6 +28,12 @@ river_info_ui <- function(reach, flowlines) {
     tags$table(
       class = "table table-sm small",
       tags$tbody(
+        if (!is.null(reach$pctile)) {
+          tags$tr(tags$td("Current condition (est.)"),
+                  tags$td(if (is.na(reach$pctile)) "No connected gage"
+                          else sprintf("Percentile %s (%d connected gages)",
+                                       fmt_num(reach$pctile), reach$n_gages)))
+        },
         tags$tr(tags$td("Mean annual flow (est.)"),
                 tags$td(fmt_num(nhd_na(reach$qe_ma), 0, " cfs"))),
         tags$tr(tags$td("Drainage area"),

@@ -521,6 +521,9 @@ for (d in unique(all_data$date)) {
   path <- sprintf("local_data/daily_diversions_%s.parquet", d)
   if (!file.exists(path)) write_parquet(day_data, path)
 }
+usethis::edit_r_environ(
+  
+)
 
 ```
 

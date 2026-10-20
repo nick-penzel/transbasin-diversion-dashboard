@@ -1,6 +1,7 @@
 # Build reference tables with coordinates for the map: structures (from
-# data/structures.csv + CDSS structure metadata) and stream gages (from
-# data/stream_gages.csv + USGS/CDSS station locations).
+# data/structures.csv + CDSS structure metadata), stream gages (from
+# data/stream_gages.csv + USGS/CDSS station locations), and reservoirs (from
+# data/reservoirs.csv + CDSS structure metadata).
 #
 # Usage: Rscript scripts/build_reference.R
 
@@ -66,9 +67,19 @@ cdss_coords <- gages |>
 gages_ref <- gages |>
   left_join(bind_rows(usgs_coords, cdss_coords), by = "id")
 
+# Reservoirs
+reservoirs <- read_csv("data/reservoirs.csv", col_types = cols(.default = "c"))
+
+reservoirs_ref <- reservoirs |>
+  mutate(capacity_af = as.numeric(capacity_af)) |>
+  left_join(get_structures_many(reservoirs$wdid) |>
+              select(wdid, water_source, longitude, latitude),
+            by = "wdid")
+
 missing <- bind_rows(
   structures_ref |> filter(is.na(latitude)) |> transmute(id = wdid, name),
-  gages_ref |> filter(is.na(latitude)) |> select(id, name)
+  gages_ref |> filter(is.na(latitude)) |> select(id, name),
+  reservoirs_ref |> filter(is.na(latitude)) |> transmute(id = wdid, name)
 )
 if (nrow(missing) > 0) {
   message("Missing coordinates:")
@@ -77,3 +88,4 @@ if (nrow(missing) > 0) {
 
 overwrite_dataset(structures_ref, "reference/structures")
 overwrite_dataset(gages_ref, "reference/gages")
+overwrite_dataset(reservoirs_ref, "reference/reservoirs")
