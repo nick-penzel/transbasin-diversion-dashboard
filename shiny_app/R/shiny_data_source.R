@@ -7,8 +7,14 @@ library(dplyr)
 DATA_ROOT <- Sys.getenv("TBD_DATA_ROOT", "../data")
 N_DAYS    <- 30   # how far back to look for the latest daily value
 
-#' Open a dataset under the data root.
+# Datasets queried on map clicks and tab changes. They are small, so they are
+# read once here and queried in memory instead of over S3 each time.
+IN_MEMORY <- c("streamflow_daily", "diversions_daily", "diversions_daily_records")
+ds_cache <- list()
+
+#' Open a dataset under the data root, or its in-memory copy.
 read_ds <- function(dataset) {
+  if (!is.null(ds_cache[[dataset]])) return(ds_cache[[dataset]])
   open_dataset(file.path(DATA_ROOT, dataset))
 }
 
@@ -47,6 +53,10 @@ structures <- read_ds("reference/structures") |> collect() |>
   filter(!is.na(latitude))
 gages      <- read_ds("reference/gages") |> collect() |>
   filter(!is.na(latitude))
+
+for (d in IN_MEMORY) {
+  if (root_exists(d)) ds_cache[[d]] <- as_arrow_table(read_ds(d))
+}
 
 latest_diversions <- latest_daily("diversions_daily", "wdid")
 

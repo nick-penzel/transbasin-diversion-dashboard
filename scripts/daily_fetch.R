@@ -46,8 +46,8 @@ if (nrow(div_results) == 0 && nrow(flow_results) == 0) {
 
 upsert_dataset(add_partitions(div_results), "diversions_daily",
                keys = c("wdid", "date"), partitioning = c("year", "month"))
-upsert_dataset(add_partitions(flow_results), "streamflow_daily",
-               keys = c("id", "date"), partitioning = c("year", "month"))
+upsert_dataset(mutate(flow_results, year = as.integer(year(date))), "streamflow_daily",
+               keys = c("id", "date"), partitioning = "year")
 upsert_dataset(mutate(res_results, year = as.integer(year(date))),
                "reservoir_storage_daily",
                keys = c("wdid", "date"), partitioning = "year")

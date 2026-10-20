@@ -29,9 +29,9 @@ for (yr in seq(start_year, year(end_date))) {
                             min(as.Date(sprintf("%d-12-31", yr)), end_date))
   if (nrow(flows) == 0) next
   upsert_dataset(
-    mutate(flows, year = as.integer(year(date)), month = as.integer(month(date))),
+    mutate(flows, year = as.integer(year(date))),
     "streamflow_daily",
-    keys = c("id", "date"), partitioning = c("year", "month")
+    keys = c("id", "date"), partitioning = "year"
   )
   message(sprintf("%s year %d done: %d rows, %d gages, %.1f s",
                   format(Sys.time(), "%H:%M:%S"), yr, nrow(flows),
