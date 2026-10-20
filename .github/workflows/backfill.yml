@@ -35,6 +35,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check secrets and variables are set
+        run: |
+          missing=0
+          for v in TBD_BUCKET AWS_REGION AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY CDSS_API_KEY API_USGS_PAT; do
+            if [ -z "${!v}" ]; then echo "::error::$v is empty"; missing=1; fi
+          done
+          exit $missing
+        env:
+          TBD_BUCKET: ${{ vars.TBD_BUCKET }}
+          CDSS_API_KEY: ${{ secrets.CDSS_API_KEY }}
+
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
