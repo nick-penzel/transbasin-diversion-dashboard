@@ -127,7 +127,7 @@ arc_coords <- function(a, b, bend = 0.25, n = 30) {
 divide_map <- function(rivers, basins, divide, flows, dark = FALSE) {
   west <- basins$basin %in% west_slope
   map <- story_basemap(dark) |>
-    addPolygons(data = basins, stroke = FALSE, fillOpacity = 0.14,
+    addPolygons(data = basins, stroke = FALSE, fillOpacity = if (dark) 0.22 else 0.14,
                 fillColor = ifelse(west, story_col$river, story_col$divide),
                 options = pathOptions(interactive = FALSE)) |>
     add_story_rivers(rivers, opacity = 0.55) |>
@@ -265,7 +265,11 @@ runoff_shift_plot <- function(shift, dark = FALSE) {
                 text = ~sprintf("%s, recent: %s (%+.0f days)", basin,
                                 wy_day_label(recent_day), shift),
                 hoverinfo = "text") |>
-    layout(xaxis = list(title = "", tickvals = c(152, 167, 183, 198, 213, 228, 244),
+    layout(annotations = list(list(x = 0, xref = "paper", y = 1.09, yref = "paper",
+                                   xanchor = "left", showarrow = FALSE,
+                                   text = "\u2190 earlier in the year",
+                                   font = list(size = 12), opacity = 0.7)),
+           xaxis = list(title = "", tickvals = c(152, 167, 183, 198, 213, 228, 244),
                         ticktext = c("Mar 1", "Mar 15", "Apr 1", "Apr 15", "May 1",
                                      "May 15", "Jun 1"),
                         range = c(min(s$recent_day, s$early_day) - 6,
@@ -404,4 +408,22 @@ gage_card <- function(g) {
                        fmt_cfs(g$p25_cfs), fmt_cfs(g$p75_cfs), g$n_years))
     } else tags$p("No recent reading.")
   )
+}
+
+#' Cards for the largest cross-Divide structures, with curated history.
+tunnel_cards <- function(flows, profiles, n = 4) {
+  top <- slice_max(flows, af, n = n)
+  tags$div(class = "tunnels", lapply(seq_len(nrow(top)), function(i) {
+    x <- top[i, ]
+    pr <- profiles[[x$wdid]]
+    summary <- if (!is.null(pr$summary)) sub("^(.*?\\.)\\s.*$", "\\1", pr$summary)
+    tags$div(class = "tunnel",
+             tags$div(class = "tunnel-af", fmt_af_short(x$af)),
+             tags$div(class = "tunnel-to", sprintf("to the %s basin", x$to)),
+             tags$h4(x$name),
+             if (!is.null(pr$built)) tags$div(class = "tunnel-meta",
+                                               paste0("Built ", pr$built,
+                                                      if (!is.null(pr$operator)) paste0(" \u00b7 ", pr$operator))),
+             if (!is.null(summary)) tags$p(summary))
+  }))
 }

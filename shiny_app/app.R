@@ -358,7 +358,7 @@ server <- function(input, output, session) {
   }, ignoreNULL = FALSE)
 
   story_server("story", story, major_rivers, story_reaches, basins, structures,
-               basin_outlets, gages, flow_doy_stats, dark,
+               basin_outlets, gages, flow_doy_stats, diversion_profiles, dark,
                go_pro = \() update_switch("pro_view", value = TRUE))
 
   output$reach_monthly <- renderPlotly({

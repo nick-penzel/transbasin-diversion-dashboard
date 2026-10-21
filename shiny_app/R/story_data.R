@@ -119,3 +119,22 @@ snow_stats <- function(flow, year) {
 }
 
 fmt_cfs <- function(x) format(signif(round(x), 2), big.mark = ",")
+
+#' Total storage, capacity, and usual storage for today across reservoirs
+#' with current data. `usual_pct` uses only reservoirs with day-of-year stats.
+storage_summary <- function(res) {
+  r <- filter(res, !is.na(storage_af), !is.na(capacity))
+  m <- filter(r, !is.na(p50_af))
+  list(pct = 100 * sum(r$storage_af) / sum(r$capacity),
+       usual_pct = 100 * sum(m$p50_af) / sum(m$capacity),
+       vs_usual = sum(m$storage_af) / sum(m$p50_af),
+       largest = slice_max(r, capacity, n = 1))
+}
+
+#' Counts of ranked gages running below and above normal today.
+gage_summary <- function(gages) {
+  ranked <- filter(gages, class != "unranked")
+  list(n = nrow(ranked),
+       low = sum(ranked$class %in% c("below", "much_below", "low")),
+       high = sum(ranked$class %in% c("above", "much_above", "high")))
+}

@@ -13,8 +13,15 @@ chapter <- function(id, num, title, ..., class = NULL) {
 
 story_ui <- function(id, years) {
   ns <- NS(id)
+  toc <- c(`ch-drops` = "A hundred drops", `ch-leaving` = "Out of state",
+           `ch-divide` = "Across the Divide", `ch-snow` = "Snow becomes river",
+           `ch-storage` = "Saving for a dry year", `ch-now` = "Right now")
   tags$div(
     class = "story",
+    tags$nav(class = "story-toc", lapply(names(toc), function(id) {
+      tags$a(href = paste0("#", id), `data-target` = id, tags$span(class = "dot"),
+             tags$span(class = "lbl", toc[[id]]))
+    })),
     tags$header(
       class = "story-hero",
       tags$div(class = "hero-inner",
@@ -27,6 +34,7 @@ story_ui <- function(id, years) {
                tags$a(class = "scroll-cue", href = "#ch-drops", "Follow the water",
                       bsicons::bs_icon("arrow-down")))
     ),
+    tags$div(class = "today-strip", uiOutput(ns("today"))),
 
     chapter(
       "ch-drops", "01", "A hundred drops",
@@ -64,6 +72,7 @@ story_ui <- function(id, years) {
                uiOutput(ns("divide_split")),
                tags$p(class = "caption",
                       "Population share is approximate, from 2020 Census county totals.")),
+      tags$div(class = "figure", uiOutput(ns("tunnels"))),
       tags$div(class = "figure map-figure",
                leafletOutput(ns("divide_map"), height = "600px"),
                tags$p(class = "caption",
@@ -143,9 +152,24 @@ story_ui <- function(id, years) {
 #' @param reaches larger river reaches colored by estimated condition.
 #' @param go_pro callback run when the professional view button is pressed.
 story_server <- function(id, story, rivers, reaches, basins, structures, outlets,
-                         gages, flow_stats, dark, go_pro) {
+                         gages, flow_stats, profiles, dark, go_pro) {
   moduleServer(id, function(input, output, session) {
     observeEvent(input$go_pro, go_pro())
+
+    output$today <- renderUI({
+      g <- gage_summary(story$gages)
+      st <- storage_summary(story$reservoirs)
+      wy <- water_year(Sys.Date())
+      day <- as.integer(Sys.Date() - as.Date(sprintf("%d-09-30", wy - 1)))
+      stat <- function(num, text) tags$div(class = "today-stat", tags$div(class = "num", num),
+                                          tags$div(class = "txt", text))
+      tags$div(class = "today-inner",
+               tags$div(class = "today-label", "Today", tags$br(), format(Sys.Date(), "%b %d")),
+               stat(sprintf("%d of %d", g$low, g$n), "river gages running lower than usual"),
+               stat(sprintf("%.0f%%", st$pct),
+                    sprintf("full, major reservoirs (usually %.0f%% now)", st$usual_pct)),
+               stat(sprintf("Day %d", day), sprintf("of water year %d", wy)))
+    })
 
     yr <- reactive(as.integer(input$year))
     b <- reactive(filter(story$budget, wy == yr()))
@@ -214,6 +238,8 @@ story_server <- function(id, story, rivers, reaches, basins, structures, outlets
 
     output$divide_split <- renderUI(divide_split(b()$west_outflow_af / b()$outflow_af))
 
+    output$tunnels <- renderUI(tunnel_cards(flows(), profiles))
+
     output$divide_map <- renderLeaflet({
       divide_map(rivers, basins, story$divide, flows(), dark())
     })
@@ -275,38 +301,29 @@ story_server <- function(id, story, rivers, reaches, basins, structures, outlets
     output$stripes <- renderPlotly(warming_stripes(story$temperature, dark()))
 
     output$storage_text <- renderUI({
-      r <- filter(story$reservoirs, !is.na(storage_af), !is.na(capacity))
-      tot <- sum(r$storage_af) / sum(r$capacity)
-      m <- filter(r, !is.na(p50_af))
-      vs <- sum(m$storage_af) / sum(m$p50_af)
-      big <- slice_max(r, capacity, n = 1)
+      st <- storage_summary(story$reservoirs)
       tagList(
         tags$p(class = "big",
-               sprintf("Colorado's major reservoirs are %.0f%% full today, %s.",
-                       100 * tot,
-                       if (vs < 0.9) sprintf("well below the usual %.0f%% for this date",
-                                             100 * sum(m$p50_af) / sum(m$capacity[!is.na(m$p50_af)]))
-                       else if (vs > 1.1) "above normal for this date"
+               sprintf("Colorado's major reservoirs are %.0f%% full today, %s.", st$pct,
+                       if (st$vs_usual < 0.9) sprintf("well below the usual %.0f%% for this date", st$usual_pct)
+                       else if (st$vs_usual > 1.1) "above normal for this date"
                        else "close to normal for this date")),
         tags$p("Reservoirs are the state's savings account: they catch the spring melt",
                "and pay it out through the dry months and dry years.",
                sprintf("%s, the largest, holds %.0f%% of what it can.",
-                       big$name, big$pct_full),
-               if (vs < 0.9) "After a dry, hot year, many are drawn down well below where they usually sit this time of year.")
+                       st$largest$name, st$largest$pct_full),
+               if (st$vs_usual < 0.9) "After a dry, hot year, many are drawn down well below where they usually sit this time of year.")
       )
     })
 
     output$tanks <- renderUI(reservoir_tanks(story$reservoirs))
 
     output$now_text <- renderUI({
-      g <- story$gages
-      ranked <- filter(g, class != "unranked")
-      low <- sum(ranked$class %in% c("below", "much_below", "low"))
-      high <- sum(ranked$class %in% c("above", "much_above", "high"))
+      g <- gage_summary(story$gages)
       tagList(
         tags$p(class = "big",
                sprintf("Of %d river gages across the state, %d are running lower than usual for the date and %d higher.",
-                       nrow(ranked), low, high)),
+                       g$n, g$low, g$high)),
         tags$p("Click any dot on the map to see how that river has run over the past",
                "year compared with normal.")
       )
