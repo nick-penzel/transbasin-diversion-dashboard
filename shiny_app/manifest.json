@@ -3330,10 +3330,13 @@
   },
   "files": {
     "app.R": {
-      "checksum": "5d2eeeabdb6e90f756072e380b8dbdb3"
+      "checksum": "a6b74185e603ddf77af9ff353b85e1c6"
     },
     "data/basins.geojson": {
       "checksum": "ef4d2beff1b26b1dec8c543057f401c3"
+    },
+    "data/major_rivers.geojson": {
+      "checksum": "376a7ea0e6a3820350d70773d88cd744"
     },
     "R/flow_idw.R": {
       "checksum": "9b42b2c6d52b6450edc3d6c6d46a7ac2"
@@ -3359,6 +3362,9 @@
     "R/mod_joyplot.R": {
       "checksum": "bcdae178343fe520ba6883d547a8267e"
     },
+    "R/mod_story.R": {
+      "checksum": "3f14aaa75bdd99c5c219ceb496c929fa"
+    },
     "R/plotly_theme.R": {
       "checksum": "b0aa170c76c43ac8c9819b210e79ca22"
     },
@@ -3369,7 +3375,22 @@
       "checksum": "db21c126e4a4c7e28d34c16936f4369f"
     },
     "R/shiny_data_source.R": {
-      "checksum": "4b81c832a71fcfa2574295b3f8c98ad4"
+      "checksum": "7f72f9c61099be0478c852f33f50faa1"
+    },
+    "R/story_data.R": {
+      "checksum": "7e889d9d647ea676a301a50af0934c4c"
+    },
+    "R/story_plots.R": {
+      "checksum": "2285384a4d0c100c988ada8471f61cc0"
+    },
+    "www/hero_rivers.png": {
+      "checksum": "a715dd284e25303a45eff3dc2dbeada8"
+    },
+    "www/story.css": {
+      "checksum": "05fee1b10731260905e3f80e82329426"
+    },
+    "www/story.js": {
+      "checksum": "2f5a78888f8b3dafaaab1489ca029be8"
     }
   },
   "users": null
