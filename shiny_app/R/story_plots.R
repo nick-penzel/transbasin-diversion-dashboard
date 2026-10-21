@@ -21,7 +21,8 @@ basin_exit <- c(
 fmt_af_words <- function(af) {
   if (length(af) != 1) return(vapply(af, fmt_af_words, character(1)))
   if (is.na(af)) return("n/a")
-  if (af >= 1e6) sprintf("%.1f million acre-feet", af / 1e6)
+  if (af >= 1e7) sprintf("%.0f million acre-feet", af / 1e6)
+  else if (af >= 1e6) sprintf("%.1f million acre-feet", af / 1e6)
   else sprintf("%s acre-feet", format(signif(af, 2), big.mark = ",", scientific = FALSE))
 }
 
@@ -38,6 +39,7 @@ wy_day_label <- function(day) format(as.Date("1999-09-30") + round(day), "%b %d"
 #' 100 droplets: river outflow, moved across the Divide, and everything else.
 droplet_waffle <- function(b) {
   n <- hundredths(c(b$outflow_af, b$divide_af, b$other_af))
+  share <- 100 * b$divide_af / b$prcp_af
   kind <- rep(c("river", "divide", "sky"), n)
   drops <- lapply(seq_along(kind), function(i) {
     tags$span(class = paste("drop", kind[i]), style = sprintf("animation-delay:%dms", i * 9),
@@ -48,16 +50,17 @@ droplet_waffle <- function(b) {
     tags$div(
       class = "waffle-key",
       waffle_key("river", n[1], "left Colorado in its rivers", b$outflow_af),
-      waffle_key("divide", n[2], "was tunneled east across the Divide", b$divide_af),
+      waffle_key("divide", n[2], "was tunneled east across the Divide", b$divide_af,
+                 count = if (share < 1) sprintf("%.1f of 100", share)),
       waffle_key("sky", n[3], "returned to the sky or stayed in the ground", b$other_af)
     )
   )
 }
 
-waffle_key <- function(kind, n, text, af) {
+waffle_key <- function(kind, n, text, af, count = NULL) {
   tags$div(class = "key-row",
            tags$span(class = paste("drop", kind), bsicons::bs_icon("droplet-fill")),
-           tags$div(tags$strong(sprintf("%d of 100", n)), " ", text,
+           tags$div(tags$strong(count %||% sprintf("%d of 100", n)), " ", text,
                     tags$div(class = "key-af", fmt_af_words(af))))
 }
 

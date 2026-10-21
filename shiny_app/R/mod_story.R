@@ -90,9 +90,7 @@ story_ui <- function(id, years) {
                       "line is one year since 1990.")),
       tags$div(class = "prose wide", uiOutput(ns("shift_text"))),
       tags$div(class = "figure", plotlyOutput(ns("shift"), height = "380px"),
-               tags$p(class = "caption",
-                      "Date by which half of each basin's yearly river flow has left",
-                      "the state, averaged over each decade.")),
+               uiOutput(ns("shift_caption"))),
       tags$div(class = "prose wide", uiOutput(ns("warming_text"))),
       tags$div(class = "figure", plotlyOutput(ns("stripes"), height = "170px"),
                tags$p(class = "caption",
@@ -199,8 +197,8 @@ story_server <- function(id, story, rivers, reaches, basins, structures, outlets
       west <- b()$west_outflow_af / b()$outflow_af
       tagList(
         tags$p(class = "big",
-               sprintf("%s rivers carried %s across the state line in %d.",
-                       "Eight", fmt_af_words(b()$outflow_af), yr())),
+               sprintf("Colorado's rivers carried %s across the state line in %d.",
+                       fmt_af_words(b()$outflow_af), yr())),
         tags$p(sprintf("The %s alone took %s, %.0f%% of the total.",
                        basin_exit[[o$basin[1]]], fmt_af_words(o$outflow_af[1]),
                        100 * o$outflow_af[1] / sum(o$outflow_af)),
@@ -282,6 +280,16 @@ story_server <- function(id, story, rivers, reaches, basins, structures, outlets
     })
 
     output$shift <- renderPlotly(runoff_shift_plot(story$shift, dark()))
+
+    output$shift_caption <- renderUI({
+      late <- filter(story$shift, early_from > 1991)
+      tags$p(class = "caption",
+             "Date by which half of each basin's yearly river flow has left the state,",
+             "averaged over each period at the main gage where the river leaves.",
+             if (nrow(late) > 0)
+               sprintf("The %s record starts in %d.", paste(late$basin, collapse = " and "),
+                       min(late$early_from)))
+    })
 
     output$warming_text <- renderUI({
       t <- story$temperature

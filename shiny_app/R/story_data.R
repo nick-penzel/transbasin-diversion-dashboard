@@ -69,6 +69,7 @@ runoff_shift <- function(outlets, early = 1991:2000, recent_n = 10) {
     group_by(basin) |>
     summarize(
       early_day = mean(day[wy %in% early]),
+      early_from = min(wy[wy %in% early]),
       recent_day = mean(day[wy > max(wy) - recent_n]),
       recent_from = max(wy) - recent_n + 1, recent_to = max(wy),
       trend = coef(lm(day ~ wy))[["wy"]] * 10,
