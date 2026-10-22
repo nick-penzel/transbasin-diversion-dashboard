@@ -3330,7 +3330,7 @@
   },
   "files": {
     "app.R": {
-      "checksum": "a6b74185e603ddf77af9ff353b85e1c6"
+      "checksum": "221b7a679d2258eafa24123670625642"
     },
     "data/basins.geojson": {
       "checksum": "ef4d2beff1b26b1dec8c543057f401c3"
@@ -3359,6 +3359,9 @@
     "R/mod_diversion.R": {
       "checksum": "b1557f3db27662d1317d291727a64b40"
     },
+    "R/mod_explore.R": {
+      "checksum": "68d3d7c1b0911dce801832ad23bcea02"
+    },
     "R/mod_joyplot.R": {
       "checksum": "bcdae178343fe520ba6883d547a8267e"
     },
@@ -3378,19 +3381,19 @@
       "checksum": "7f72f9c61099be0478c852f33f50faa1"
     },
     "R/story_data.R": {
-      "checksum": "7e889d9d647ea676a301a50af0934c4c"
+      "checksum": "fabc5f93e8845b4afbb7076f27e980ac"
     },
     "R/story_plots.R": {
-      "checksum": "2285384a4d0c100c988ada8471f61cc0"
+      "checksum": "b3dd8a97e1be22f279838218cdfefbbc"
     },
     "www/hero_rivers.png": {
       "checksum": "a715dd284e25303a45eff3dc2dbeada8"
     },
     "www/story.css": {
-      "checksum": "05fee1b10731260905e3f80e82329426"
+      "checksum": "e89af6b32ab019a58505f6847e0b05ad"
     },
     "www/story.js": {
-      "checksum": "2f5a78888f8b3dafaaab1489ca029be8"
+      "checksum": "d5ee2ee3821061d617078acd7b6aec0c"
     }
   },
   "users": null

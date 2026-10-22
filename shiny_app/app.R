@@ -74,6 +74,7 @@ story_reaches <- if (!is.null(flowlines)) {
     st_simplify(dTolerance = 0.0005)
 }
 pro_tabs <- c("Map", "Gage hydrographs", "Diversions", "Basins")
+public_tabs <- c("story", "explore")
 
 # Site picker values are "d:<wdid>" for diversions, "g:<id>" for gages, and
 # "r:<wdid>" for reservoirs
@@ -118,6 +119,7 @@ ui <- page_navbar(
     .leaflet-tooltip { font-size: 12px; }
   "))),
   nav_panel("Colorado's water", value = "story", story_ui("story", story_years)),
+  nav_panel("River basins", value = "explore", explore_ui("explore")),
   nav_panel(
     "Map",
     layout_columns(
@@ -353,13 +355,18 @@ server <- function(input, output, session) {
     for (tab in pro_tabs) {
       if (pro) nav_show("nav", tab) else nav_hide("nav", tab)
     }
-    if (pro) nav_hide("nav", "story") else nav_show("nav", "story")
+    for (tab in public_tabs) {
+      if (pro) nav_hide("nav", tab) else nav_show("nav", tab)
+    }
     nav_select("nav", if (pro) "Map" else "story")
   }, ignoreNULL = FALSE)
 
   story_server("story", story, major_rivers, story_reaches, basins, structures,
                basin_outlets, gages, flow_doy_stats, diversion_profiles, dark,
                go_pro = \() update_switch("pro_view", value = TRUE))
+  explore_server("explore", story, basin_climate_wy, major_rivers, basins, structures,
+                 basin_outlets, flow_doy_stats, reservoir_doy_stats, diversion_doy_stats,
+                 history, diversion_profiles, dark)
 
   output$reach_monthly <- renderPlotly({
     cl <- clicked()

@@ -21,3 +21,11 @@ $(document).on("shiny:sessioninitialized", function () {
   }, { rootMargin: "-45% 0px -50% 0px" });
   document.querySelectorAll(".story .chapter").forEach(function (c) { obs.observe(c); });
 });
+
+// River basins page: bring the clicked feature's card into view
+$(document).on("shiny:connected", function () {
+  Shiny.addCustomMessageHandler("scroll_into_view", function (id) {
+    var el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+});

@@ -30,16 +30,23 @@ fmt_af_words <- function(af) {
 fmt_af_short <- function(af) {
   if (length(af) != 1) return(vapply(af, fmt_af_short, character(1)))
   if (af >= 1e6) sprintf("%.1fM AF", af / 1e6)
-  else sprintf("%sK AF", format(round(af / 1e3), big.mark = ","))
+  else if (af >= 1e4) sprintf("%sK AF", format(round(af / 1e3), big.mark = ","))
+  else sprintf("%s AF", format(signif(af, 2), big.mark = ","))
 }
+
+#' USGS names capitalize only the first word after a hyphen: "Colorado-Utah".
+nice_name <- function(x) gsub("(?<=[-/])([a-z])", "\\U\\1", x, perl = TRUE)
 
 #' Day of water year (1 = Oct 1) as "May 28".
 wy_day_label <- function(day) format(as.Date("1999-09-30") + round(day), "%b %d")
 
 #' 100 droplets: river outflow, moved across the Divide, and everything else.
-droplet_waffle <- function(b) {
+droplet_waffle <- function(b, labels = c("left Colorado in its rivers",
+                                          "was tunneled east across the Divide",
+                                          "returned to the sky or stayed in the ground")) {
   n <- hundredths(c(b$outflow_af, b$divide_af, b$other_af))
-  share <- 100 * b$divide_af / b$prcp_af
+  share <- 100 * c(b$outflow_af, b$divide_af) / b$prcp_af
+  sliver <- function(x) if (x < 1) sprintf("%.1f of 100", x)
   kind <- rep(c("river", "divide", "sky"), n)
   drops <- lapply(seq_along(kind), function(i) {
     tags$span(class = paste("drop", kind[i]), style = sprintf("animation-delay:%dms", i * 9),
@@ -49,10 +56,11 @@ droplet_waffle <- function(b) {
     tags$div(class = "waffle", drops),
     tags$div(
       class = "waffle-key",
-      waffle_key("river", n[1], "left Colorado in its rivers", b$outflow_af),
-      waffle_key("divide", n[2], "was tunneled east across the Divide", b$divide_af,
-                 count = if (share < 1) sprintf("%.1f of 100", share)),
-      waffle_key("sky", n[3], "returned to the sky or stayed in the ground", b$other_af)
+      waffle_key("river", n[1], labels[1], b$outflow_af, count = sliver(share[1])),
+      if (b$divide_af > 0)
+        waffle_key("divide", n[2], labels[2], b$divide_af,
+                   count = sliver(share[2])),
+      waffle_key("sky", n[3], labels[3], b$other_af)
     )
   )
 }
@@ -75,11 +83,11 @@ story_basemap <- function(dark = FALSE) {
 }
 
 #' Rivers drawn wider and deeper blue downstream.
-add_story_rivers <- function(m, rivers, opacity = 0.85) {
+add_story_rivers <- function(m, rivers, opacity = 0.85, width = 1.1) {
   pal <- colorNumeric(c(story_col$light, story_col$river, story_col$deep),
                       domain = range(rivers$order))
   m |>
-    addPolylines(data = rivers, color = ~pal(order), weight = ~(order - 4) * 1.1,
+    addPolylines(data = rivers, color = ~pal(order), weight = ~(order - 4) * width,
                  opacity = opacity, label = ~name,
                  options = pathOptions(interactive = TRUE))
 }
@@ -268,8 +276,8 @@ runoff_shift_plot <- function(shift, dark = FALSE) {
                 text = ~sprintf("%s, recent: %s (%+.0f days)", basin,
                                 wy_day_label(recent_day), shift),
                 hoverinfo = "text") |>
-    layout(annotations = list(list(x = 0, xref = "paper", y = 1.09, yref = "paper",
-                                   xanchor = "left", showarrow = FALSE,
+    layout(annotations = list(list(x = 1, xref = "paper", y = 1.02, yref = "paper",
+                                   xanchor = "right", yanchor = "bottom", showarrow = FALSE,
                                    text = "\u2190 earlier in the year",
                                    font = list(size = 12), opacity = 0.7)),
            xaxis = list(title = "", tickvals = c(152, 167, 183, 198, 213, 228, 244),
@@ -363,12 +371,13 @@ now_map <- function(reaches, gages, dark = FALSE) {
     addCircleMarkers(data = g, lng = ~longitude, lat = ~latitude, layerId = ~id,
                      radius = 7, fillColor = ~color, fillOpacity = 1,
                      color = if (dark) "#161b22" else "#ffffff", weight = 2,
-                     label = ~sprintf("%s: %s", name, plain))
+                     label = ~sprintf("%s: %s", nice_name(name), plain))
 }
 
 #' One gage's past year against its normal range, in plain terms.
-public_hydrograph <- function(daily, stats, dark = FALSE) {
-  validate(need(nrow(daily) > 0, "No recent data for this gage."))
+public_hydrograph <- function(daily, stats, dark = FALSE, units = "cfs",
+                              y_title = "Cubic feet per second") {
+  validate(need(nrow(daily) > 0, "No recent data for this site."))
   end <- max(daily$x)
   start <- end - 365
   d <- in_window(daily, start)
@@ -383,14 +392,14 @@ public_hydrograph <- function(daily, stats, dark = FALSE) {
       add_lines(data = bands, x = ~x, y = ~p50_cfs, name = "Typical",
                 line = list(color = if (dark) "#ADE3C0" else story_col$deep,
                             dash = "dot", width = 1.5),
-                hovertemplate = "Typical: %{y:,.0f} cfs<extra></extra>")
+                hovertemplate = paste0("Typical: %{y:,.0f} ", units, "<extra></extra>"))
   }
   p |>
     add_lines(data = d, x = ~x, y = ~y, name = "This past year", connectgaps = FALSE,
               line = list(color = story_col$divide, width = 2.2),
-              hovertemplate = "%{x|%b %d}: %{y:,.0f} cfs<extra></extra>") |>
+              hovertemplate = paste0("%{x|%b %d}: %{y:,.0f} ", units, "<extra></extra>")) |>
     layout(xaxis = list(title = "", tickformat = "%b"),
-           yaxis = list(title = "Cubic feet per second", rangemode = "tozero"),
+           yaxis = list(title = y_title, rangemode = "tozero"),
            hovermode = "x unified", margin = list(t = 30, b = 30)) |>
     style_plotly(dark, legend = legend_top)
 }
@@ -400,7 +409,7 @@ gage_card <- function(g) {
   plain <- plain_status$plain[plain_status$class == g$class]
   tagList(
     tags$div(class = "card-kicker", g$basin, " basin"),
-    tags$h3(class = "card-title", g$name),
+    tags$h3(class = "card-title", nice_name(g$name)),
     tags$div(class = "card-status",
              tags$span(class = "tile", style = sprintf("background:%s", g$color)), plain),
     if (!is.na(g$flow_cfs)) {
@@ -429,4 +438,159 @@ tunnel_cards <- function(flows, profiles, n = 4) {
                                                       if (!is.null(pr$operator)) paste0(" \u00b7 ", pr$operator))),
              if (!is.null(summary)) tags$p(summary))
   }))
+}
+
+# ---- River basins page ----
+
+basin_blurb <- c(
+  Colorado = "The Colorado River rises in Rocky Mountain National Park and gathers the Eagle, Roaring Fork, and Gunnison before it crosses into Utah. It is the state's largest river and a lifeline for the Southwest.",
+  `Yampa/White` = "The Yampa and White drain Colorado's quiet northwest corner, sagebrush and high plateaus, and flow west into Utah. The Yampa is one of the least dammed rivers in the Colorado River system.",
+  Dolores = "The Dolores and San Miguel drain the western San Juan Mountains. McPhee Reservoir holds back much of the Dolores and sends it south to farms around Cortez.",
+  `San Juan` = "The Animas, Piedra, Los Pinos, and other rivers of the southern San Juan Mountains join the San Juan, which crosses into New Mexico near Four Corners.",
+  `Rio Grande` = "The Rio Grande rises in the San Juan Mountains and crosses the San Luis Valley, where potato and barley farms depend on it and on the groundwater below, before it enters New Mexico.",
+  Arkansas = "The Arkansas falls from near Leadville through the Royal Gorge to the plains, watering farms and towns from Pueblo to the Kansas line.",
+  `South Platte` = "The South Platte runs through Denver and the Front Range, home to most Coloradans. It is the state's most heavily used river, and much of the water piped across the Divide ends up here.",
+  `North Platte` = "The North Platte drains North Park, a high mountain valley of hay meadows, and flows north into Wyoming."
+)
+
+transfer_col <- c(export = story_col$divide, import = "#8E5BB5", local = "#7B8794")
+transfer_word <- c(export = "Sends water out of the basin",
+                   import = "Brings water into the basin",
+                   local = "Diversion within the basin")
+
+#' Diamond map icons for diversions, one color per direction.
+diamond_icons <- function(dir) {
+  url <- sprintf(paste0("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18'>",
+                        "<rect x='4' y='4' width='10' height='10' transform='rotate(45 9 9)' ",
+                        "fill='%s' stroke='white' stroke-width='1.6'/></svg>"),
+                 sub("#", "%23", transfer_col[dir]))
+  icons(iconUrl = url, iconWidth = 18, iconHeight = 18)
+}
+
+#' One basin in the spotlight: other basins veiled and clickable, its rivers,
+#' gages, reservoirs, and the diversions into or out of it.
+basin_map <- function(b, basins, rivers, gages, reservoirs, divs, dark = FALSE) {
+  sel <- basins[basins$basin == b, ]
+  bb <- unname(sf::st_bbox(sel))
+  veil <- if (dark) "#161b22" else "#fbfaf7"
+  g <- left_join(gages, plain_status, by = "class")
+  r <- left_join(reservoirs, plain_status, by = "class")
+  story_basemap(dark) |>
+    fitBounds(bb[1], bb[2], bb[3], bb[4]) |>
+    addPolygons(data = sel, fillColor = story_col$river, fillOpacity = 0.06, stroke = FALSE,
+                options = pathOptions(interactive = FALSE)) |>
+    add_story_rivers(rivers, opacity = 0.95, width = 1.5) |>
+    addPolygons(data = basins[basins$basin != b, ], layerId = ~basin, group = "basin",
+                fillColor = veil, fillOpacity = 0.7, color = if (dark) "#55606e" else "#9aa6b2",
+                weight = 1, label = ~paste("Explore the", basin, "basin"),
+                highlightOptions = highlightOptions(fillOpacity = 0.45)) |>
+    addPolygons(data = sel, fill = FALSE, color = story_col$deep, weight = 2.5, opacity = 0.9,
+                options = pathOptions(interactive = FALSE)) |>
+    addCircleMarkers(data = r, lng = ~longitude, lat = ~latitude, layerId = ~paste0("r:", wdid),
+                     radius = ~5 + sqrt(capacity) / 80, fillColor = ~color, fillOpacity = 0.75,
+                     color = if (dark) "#ADE3C0" else story_col$deep, weight = 2.5,
+                     label = ~sprintf("%s: %.0f%% full, %s", name, pct_full,
+                                      tolower(coalesce(plain, "no recent data")))) |>
+    addCircleMarkers(data = g, lng = ~longitude, lat = ~latitude, layerId = ~paste0("g:", id),
+                     radius = 6.5, fillColor = ~color, fillOpacity = 1,
+                     color = if (dark) "#161b22" else "#ffffff", weight = 2,
+                     label = ~sprintf("%s: %s", nice_name(name), plain)) |>
+    addMarkers(data = divs, lng = ~longitude, lat = ~latitude, layerId = ~paste0("d:", wdid),
+               icon = diamond_icons(divs$dir),
+               label = ~sprintf("%s: %s", name, tolower(transfer_word[dir])))
+}
+
+#' Map key for the basin page.
+basin_map_key <- function() {
+  sw <- function(style, text) tags$span(tags$span(class = "key-mark", style = style), text)
+  tags$div(class = "tile-legend",
+           sw("border-radius:50%;background:#5fbf6a;border:2px solid #fff;box-shadow:0 0 0 1px #9aa6b2",
+              "River gage, colored by today's flow"),
+           sw("border-radius:50%;width:18px;height:18px;background:#5fbf6a;border:2.5px solid var(--deep)",
+              "Reservoir, sized by capacity"),
+           sw(sprintf("transform:rotate(45deg) scale(0.75);background:%s", transfer_col[["export"]]),
+              "Sends water out"),
+           sw(sprintf("transform:rotate(45deg) scale(0.75);background:%s", transfer_col[["import"]]),
+              "Brings water in"),
+           sw(sprintf("transform:rotate(45deg) scale(0.75);background:%s", transfer_col[["local"]]),
+              "Other diversion"))
+}
+
+#' Water leaving the basin each year: river outflow with transfers out on top.
+basin_years_plot <- function(years, dark = FALSE) {
+  latest <- max(years$wy[!is.na(years$prcp_af)])
+  med <- median(years$outflow_af)
+  op <- ifelse(years$wy == latest, 1, 0.55)
+  p <- plot_ly(years, x = ~wy) |>
+    add_bars(y = ~outflow_af / 1e3, name = "Left the state in rivers",
+             marker = list(color = story_col$river, opacity = op),
+             hovertemplate = "%{x}: %{y:,.0f} thousand acre-feet in rivers<extra></extra>")
+  if (any(years$export_af > 0, na.rm = TRUE)) {
+    p <- p |>
+      add_bars(y = ~export_af / 1e3, name = "Sent to other basins",
+               marker = list(color = story_col$divide, opacity = op),
+               hovertemplate = "%{x}: %{y:,.0f} thousand acre-feet sent away<extra></extra>")
+  }
+  p |>
+    add_lines(y = med / 1e3, name = "Typical river outflow", hoverinfo = "skip",
+              line = list(color = if (dark) "#dee2e6" else story_col$deep, dash = "dot", width = 1.5)) |>
+    layout(barmode = "stack", bargap = 0.2,
+           xaxis = list(title = "", dtick = 5),
+           yaxis = list(title = "Thousand acre-feet"),
+           margin = list(t = 30, b = 30)) |>
+    style_plotly(dark, legend = c(legend_top, traceorder = "normal"))
+}
+
+#' Plain-language card for one reservoir.
+reservoir_card <- function(r) {
+  plain <- plain_status$plain[plain_status$class == r$class]
+  tagList(
+    tags$div(class = "card-kicker", "Reservoir · ", r$basin, " basin"),
+    tags$h3(class = "card-title", r$name),
+    tags$div(class = "card-status",
+             tags$span(class = "tile", style = sprintf("background:%s", r$color)), plain),
+    if (!is.na(r$storage_af)) {
+      tags$p(sprintf("Holding %s on %s, %.0f%% of the %s it can store.",
+                     fmt_af_words(r$storage_af), format(r$date, "%B %d"), r$pct_full,
+                     fmt_af_words(r$capacity)),
+             if (!is.na(r$p50_af))
+               sprintf("On this date it is usually %.0f%% full.", 100 * r$p50_af / r$capacity))
+    } else tags$p("No recent reading."),
+    if (!is.na(r$water_source))
+      tags$p(class = "card-note", paste0("Fed by the ", tools::toTitleCase(tolower(r$water_source)), "."))
+  )
+}
+
+#' Plain-language card for one diversion, with its researched history.
+diversion_card <- function(d, profile, vol) {
+  meta <- list(Built = profile$built, Operator = profile$operator, Serves = profile$serves)
+  meta <- meta[!vapply(meta, is.null, logical(1))]
+  found <- isTRUE(profile$found)
+  tagList(
+    tags$div(class = "card-kicker",
+             if (d$dir == "local") sprintf("Diversion · %s basin", d$from)
+             else sprintf("Across basins · %s to %s", d$from, d$to)),
+    tags$h3(class = "card-title", d$name),
+    tags$div(class = "card-status",
+             tags$span(class = "tile diamond", style = sprintf("background:%s", transfer_col[[d$dir]])),
+             transfer_word[[d$dir]]),
+    if (nrow(vol) > 0)
+      tags$p(class = "card-vol",
+             tags$strong(fmt_af_words(vol$af[nrow(vol)])),
+             sprintf(" in water year %d", vol$wy[nrow(vol)]),
+             if (nrow(vol) >= 5)
+               sprintf(" (typically %s)", fmt_af_words(median(vol$af)))),
+    if (found) tags$p(profile$summary)
+    else tags$p(class = "card-note", "No published history found for this structure."),
+    if (found && length(meta) > 0)
+      tags$dl(class = "card-meta", lapply(names(meta), \(k) tagList(tags$dt(k), tags$dd(meta[[k]])))),
+    if (found && length(profile$facts) > 0)
+      tags$ul(class = "card-facts", lapply(profile$facts, tags$li)),
+    if (found && length(profile$sources) > 0)
+      tags$p(class = "card-note", "Sources: ",
+             lapply(seq_along(profile$sources), \(i)
+               tagList(if (i > 1) ", ",
+                       tags$a(href = profile$sources[[i]], target = "_blank", .noWS = "outside",
+                              sprintf("[%d]", i)))))
+  )
 }

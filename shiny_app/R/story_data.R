@@ -37,10 +37,10 @@ statewide_budget <- function(outflow, climate_wy, transfers) {
 #' Split 100 between parts by largest remainder, giving each part at least one.
 hundredths <- function(x) {
   raw <- 100 * x / sum(x)
-  n <- pmax(floor(raw), 1)
+  n <- ifelse(x > 0, pmax(floor(raw), 1), 0)
   extra <- 100 - sum(n)
   if (extra > 0) {
-    idx <- order(raw - floor(raw), decreasing = TRUE)[seq_len(extra)]
+    idx <- order(if_else(x > 0, raw - floor(raw), -Inf), decreasing = TRUE)[seq_len(extra)]
     n[idx] <- n[idx] + 1
   } else if (extra < 0) {
     idx <- order(n, decreasing = TRUE)[seq_len(-extra)]
@@ -138,4 +138,32 @@ gage_summary <- function(gages) {
   list(n = nrow(ranked),
        low = sum(ranked$class %in% c("below", "much_below", "low")),
        high = sum(ranked$class %in% c("above", "much_above", "high")))
+}
+
+#' One basin's water years: precipitation, outflow, and transfers out of and
+#' into it (AF). Transfers count only from 2013, when records fill in.
+basin_years <- function(b, outflow, climate_wy, transfers) {
+  tr <- filter(transfers, wy >= 2013)
+  exp <- tr |> filter(from == b) |> summarize(export_af = sum(af), .by = wy)
+  imp <- tr |> filter(to == b) |> summarize(import_af = sum(af), .by = wy)
+  outflow |>
+    filter(basin == b, !is.na(outflow_af)) |>
+    select(wy, outflow_af) |>
+    left_join(climate_wy |> filter(basin == b) |> select(wy, prcp_af, prcp_mm),
+              by = "wy") |>
+    left_join(exp, by = "wy") |>
+    left_join(imp, by = "wy") |>
+    mutate(across(c(export_af, import_af), \(x) if_else(wy >= 2013, coalesce(x, 0), x))) |>
+    arrange(wy)
+}
+
+#' Latest complete year for a basin with medians, plus today's gages and
+#' reservoirs in it.
+basin_snapshot <- function(years, gages, reservoirs) {
+  y <- years |> filter(!is.na(prcp_af)) |> slice_max(wy, n = 1)
+  med <- function(x) median(x[!is.na(x)])
+  list(year = y, prcp_med = med(years$prcp_mm), outflow_med = med(years$outflow_af),
+       export_med = med(years$export_af), import_med = med(years$import_af),
+       gages = gage_summary(gages),
+       storage = if (any(!is.na(reservoirs$storage_af))) storage_summary(reservoirs))
 }
