@@ -38,7 +38,7 @@ flowchart LR
 All fetch and build code lives in `../scripts/`. Each fetch module defines a single-site function and a `*_many` wrapper that rate-limits requests and catches per-site errors, so one failed site doesn't stop the run. Fetch functions return tibbles; only the entry-point scripts write data.
 
 | Workflow | Schedule | What it does |
-|------------------------|------------------------|------------------------|
+|----|----|----|
 | `daily_fetch.yml` | Daily, 13:30 UTC (GitHub often starts it hours late) | Re-pulls the last 7 days of diversion telemetry, streamflow, and reservoir storage, plus the last 75 days of gridMET. Provisional values get revised, so recent days are always refetched. |
 | `backfill.yml` | 1st of each month | Re-pulls the last two years of approved CDSS records (monthly diversions, daily diversions, reservoir storage), then rebuilds the day-of-year statistics and water rights. Approved records lag about a year. |
 
@@ -49,7 +49,7 @@ Some steps run locally and are rerun only when their inputs change: the NHDPlus 
 Every dataset lives under one root, set by `TBD_DATA_ROOT`: `s3://co-water-data` in production, or a local folder such as `../data`. Reads and writes use `arrow`, which handles both. `upsert_dataset()` in `scripts/storage.R` replaces rows by key and rewrites only the partitions it touches, so reruns are idempotent.
 
 | Dataset | Contents | Partitioned by |
-|------------------------|------------------------|------------------------|
+|----|----|----|
 | `streamflow_daily` | Daily mean flow (cfs) for 50 gages, USGS and CDSS | year |
 | `diversions_daily` | Provisional daily telemetry (cfs) | year, month |
 | `diversions_daily_records` | Approved daily diversion records | year |
