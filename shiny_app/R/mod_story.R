@@ -88,6 +88,9 @@ story_ui <- function(id, years) {
                tags$p(class = "caption",
                       "Daily flow of the Colorado River at the Utah line. Each faint",
                       "line is one year since 1990.")),
+      tags$div(class = "prose wide", uiOutput(ns("snowpack_text"))),
+      tags$div(class = "figure", plotlyOutput(ns("snowpack"), height = "380px"),
+               uiOutput(ns("snowpack_caption"))),
       tags$div(class = "prose wide", uiOutput(ns("shift_text"))),
       tags$div(class = "figure", plotlyOutput(ns("shift"), height = "380px"),
                uiOutput(ns("shift_caption"))),
@@ -150,7 +153,7 @@ story_ui <- function(id, years) {
 #' @param reaches larger river reaches colored by estimated condition.
 #' @param go_pro callback run when the professional view button is pressed.
 story_server <- function(id, story, rivers, reaches, basins, structures, outlets,
-                         gages, flow_stats, profiles, dark, go_pro) {
+                         gages, flow_stats, profiles, snowpack, dark, go_pro) {
   moduleServer(id, function(input, output, session) {
     observeEvent(input$go_pro, go_pro())
 
@@ -264,6 +267,50 @@ story_server <- function(id, story, rivers, reaches, basins, structures, outlets
     })
 
     output$snowmelt <- renderPlotly(snowmelt_plot(cameo, flow_wy, dark()))
+
+    state_snow <- if (!is.null(snowpack$sites)) {
+      snowpack_series(snowpack$daily, snowpack$normals,
+                      filter(snowpack$sites, active)$site_id)
+    }
+
+    output$snowpack_text <- renderUI({
+      req(state_snow)
+      t <- snowpack_today(state_snow)
+      req(t)
+      peak <- state_snow$peak
+      typical <- sprintf("In a typical year the snowpack peaks around %s, when the average snow site holds about %.0f inches of water.",
+                         fmt_day(peak$x), peak$median_mm / 25.4)
+      now <- switch(t$stage,
+        early = sprintf("Water year %d's snow season is just getting started: the average site holds %.1f inches of water so far.",
+                        water_year(t$date), t$swe_mm / 25.4),
+        season = sprintf("Right now Colorado's snowpack is %s normal for the date, at %.0f%% of the 1991 to 2020 median.",
+                         if (t$pct >= 110) "above" else if (t$pct <= 90) "below" else "close to",
+                         t$pct),
+        melted = sprintf("This winter the average site peaked at %.0f inches on %s, %.0f%% of a typical peak.",
+                         t$this_peak$swe_mm / 25.4, fmt_day(t$this_peak$date),
+                         100 * t$this_peak$swe_mm / peak$median_mm))
+      tagList(
+        tags$p(class = "big", "Snow is the state's first reservoir."),
+        tags$p("More than a hundred automated SNOTEL stations, mostly above 9,000",
+               "feet, weigh the snow every day. The water locked in that snow tells",
+               "water managers how much river is coming in spring.", typical, now)
+      )
+    })
+
+    output$snowpack <- renderPlotly({
+      req(state_snow)
+      snowpack_plot(state_snow, dark(),
+                    median_color = if (dark()) "#ADE3C0" else story_col$deep,
+                    current_color = story_col$divide)
+    })
+
+    output$snowpack_caption <- renderUI({
+      req(state_snow)
+      tags$p(class = "caption",
+             sprintf("Average snow water equivalent (the depth of water if the snow melted) across %d SNOTEL stations,",
+                     state_snow$n_sites),
+             "this water year against the 1991 to 2020 median for each date. Data: NRCS.")
+    })
 
     output$shift_text <- renderUI({
       s <- story$shift

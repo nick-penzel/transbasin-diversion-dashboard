@@ -38,6 +38,15 @@ reservoirs$basin <- basins$basin[suppressMessages(st_nearest_feature(
   st_as_sf(reservoirs, coords = c("longitude", "latitude"), crs = 4326),
   basins
 ))]
+# SNOTEL sites outside the basin polygons take the nearest one
+if (!is.null(snotel_sites)) {
+  snotel_sites$basin <- basins$basin[suppressMessages(st_nearest_feature(
+    st_as_sf(snotel_sites, coords = c("longitude", "latitude"), crs = 4326),
+    basins
+  ))]
+}
+snowpack <- list(sites = snotel_sites, daily = snotel_daily, normals = snotel_normals)
+
 reservoir_points <- reservoir_status(reservoirs, reservoir_storage,
                                      reservoir_doy_stats)
 basin_storage <- storage_by_wy(reservoir_storage, reservoirs)
@@ -362,7 +371,7 @@ server <- function(input, output, session) {
   }, ignoreNULL = FALSE)
 
   story_server("story", story, major_rivers, story_reaches, basins, structures,
-               basin_outlets, gages, flow_doy_stats, diversion_profiles, dark,
+               basin_outlets, gages, flow_doy_stats, diversion_profiles, snowpack, dark,
                go_pro = \() update_switch("pro_view", value = TRUE))
   explore_server("explore", story, basin_climate_wy, major_rivers, basins, structures,
                  basin_outlets, flow_doy_stats, reservoir_doy_stats, diversion_doy_stats,
@@ -404,7 +413,7 @@ server <- function(input, output, session) {
   joyplot_server("joy", gages, selected_gage, dark)
   basin_server("basin", basin_outlets, basin_transfers, gage_points,
                reservoir_points, basin_storage, basin_climate_wy, basin_climate,
-               basin_climate_stats, dark)
+               basin_climate_stats, snowpack, dark)
   diversion_server("div", structures, history, diversion_classes,
                    diversions_recent, normals, water_rights,
                    diversion_profiles, selected, dark)

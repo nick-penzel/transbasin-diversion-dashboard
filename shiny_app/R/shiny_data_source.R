@@ -120,3 +120,19 @@ diversion_classes <- read_optional("diversions_monthly_classes")
 diversion_doy_stats <- read_optional("diversions_doy_stats")
 basin_outlets <- readr::read_csv(root_file("basin_outlets.csv"),
                                  col_types = readr::cols(.default = "c"))
+
+# SNOTEL: sites, this water year's daily SWE, and SWE normals by day
+snotel_sites <- read_optional("reference/snotel_sites")
+snotel_daily <- if (root_exists("snotel_daily")) {
+  this_wy <- water_year(Sys.Date())
+  read_ds("snotel_daily") |>
+    filter(wy == this_wy) |>
+    select(site_id, date, swe_mm) |>
+    collect()
+}
+snotel_normals <- if (root_exists("snotel_doy_stats")) {
+  read_ds("snotel_doy_stats") |>
+    filter(variable == "swe_mm") |>
+    select(site_id, mmdd, p50, med_9120) |>
+    collect()
+}
