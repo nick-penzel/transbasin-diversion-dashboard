@@ -47,7 +47,7 @@ Full rebuild order: `build_reference` → `backfill_streamflow` → `backfill_hi
 
 ## Style
 
-Write using the tidyverse style. When generating text, avoid em dashes and other classic AI tells. Favor clean and beautiful visuals with viridis color palettes. Use ggplot2 and leaflet for visualizations. Use `dplyr`, `tidyr`, and `purrr` for data manipulation. Keep functions small and focused, and document them with roxygen2-style comments.
+Write using the tidyverse style. When generating text, avoid em dashes and other classic AI tells. Do not add Claude attribution (`Co-Authored-By` trailers or "Generated with Claude Code" lines) to commit messages or PR descriptions. Favor clean and beautiful visuals with viridis color palettes. Use ggplot2 and leaflet for visualizations. Use `dplyr`, `tidyr`, and `purrr` for data manipulation. Keep functions small and focused, and document them with roxygen2-style comments.
 
 ## Architecture
 
