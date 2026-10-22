@@ -60,6 +60,22 @@ basin_transfers <- transfers_by_wy(
   history, collect(read_ds("diversions_daily")), structures
 )
 
+# Public story view: simplified rivers (scripts/build_story_assets.R) and
+# the numbers behind each chapter. Transfer records are sparse before 2013.
+major_rivers <- st_read("data/major_rivers.geojson", quiet = TRUE)
+story <- build_story(basin_outlets, basin_climate_wy, climate_zones,
+                     basin_transfers, basins, reservoir_points, gage_points)
+story_years <- story$budget$wy[story$budget$wy >= 2013]
+# Larger reaches with today's estimated condition, for the story's live map
+story_reaches <- if (!is.null(flowlines)) {
+  flowlines[flowlines$streamorde >= 5, ] |>
+    select(comid, gnis_name, streamorde, class, color) |>
+    left_join(plain_status, by = "class") |>
+    st_simplify(dTolerance = 0.0005)
+}
+pro_tabs <- c("Map", "Gage hydrographs", "Diversions", "Basins")
+public_tabs <- c("story", "explore")
+
 # Site picker values are "d:<wdid>" for diversions, "g:<id>" for gages, and
 # "r:<wdid>" for reservoirs
 site_types <- c(d = "diversion", g = "gage", r = "reservoir")
@@ -74,7 +90,12 @@ ui <- page_navbar(
   id = "nav",
   title = "Colorado Water",
   theme = bs_theme(version = 5, preset = "flatly"),
-  header = tags$style(HTML("
+  fillable = pro_tabs,
+  header = tagList(
+  tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap"),
+  tags$link(rel = "stylesheet", href = "story.css"),
+  tags$script(src = "story.js"),
+  tags$style(HTML("
     .flow-anim { animation: flow-downstream 0.8s linear infinite; }
     @keyframes flow-downstream { to { stroke-dashoffset: -16; } }
     @media (prefers-reduced-motion: reduce) { .flow-anim { animation: none; } }
@@ -96,7 +117,9 @@ ui <- page_navbar(
     [data-bs-theme=dark] .map-legend .sw { box-shadow: 0 0 0 1px rgba(255,255,255,0.35); }
     [data-bs-theme=dark] .leaflet-control-layers { background: #212529; color: #e9ecef; }
     .leaflet-tooltip { font-size: 12px; }
-  ")),
+  "))),
+  nav_panel("Colorado's water", value = "story", story_ui("story", story_years)),
+  nav_panel("River basins", value = "explore", explore_ui("explore")),
   nav_panel(
     "Map",
     layout_columns(
@@ -126,6 +149,7 @@ ui <- page_navbar(
   nav_panel("Diversions", diversion_ui("div", structures)),
   nav_panel("Basins", basin_ui("basin", sort(basins$basin))),
   nav_spacer(),
+  nav_item(input_switch("pro_view", "Professional view", width = "auto")),
   nav_item(input_dark_mode(id = "dark_mode", mode = "light"))
 )
 
@@ -318,6 +342,31 @@ server <- function(input, output, session) {
   })
 
   dark <- reactive(identical(input$dark_mode, "dark"))
+
+  # ---- Public / professional view ----
+  # ?view=pro opens the professional tabs; the public story is the default
+  observe({
+    view <- parseQueryString(session$clientData$url_search)$view
+    if (identical(view, "pro")) update_switch("pro_view", value = TRUE)
+  }) |> bindEvent(session$clientData$url_search, once = TRUE)
+
+  observeEvent(input$pro_view, {
+    pro <- isTRUE(input$pro_view)
+    for (tab in pro_tabs) {
+      if (pro) nav_show("nav", tab) else nav_hide("nav", tab)
+    }
+    for (tab in public_tabs) {
+      if (pro) nav_hide("nav", tab) else nav_show("nav", tab)
+    }
+    nav_select("nav", if (pro) "Map" else "story")
+  }, ignoreNULL = FALSE)
+
+  story_server("story", story, major_rivers, story_reaches, basins, structures,
+               basin_outlets, gages, flow_doy_stats, diversion_profiles, dark,
+               go_pro = \() update_switch("pro_view", value = TRUE))
+  explore_server("explore", story, basin_climate_wy, major_rivers, basins, structures,
+                 basin_outlets, flow_doy_stats, reservoir_doy_stats, diversion_doy_stats,
+                 history, diversion_profiles, dark)
 
   output$reach_monthly <- renderPlotly({
     cl <- clicked()
