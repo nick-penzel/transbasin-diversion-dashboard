@@ -37,10 +37,11 @@ Rscript scripts/build_water_rights.R       # CDSS net amount rights for each str
 Rscript scripts/build_climate_zones.R      # HUC8 + basin zones and Daymet cell weights, ~1 min
 CLIMATE_SOURCE=daymet CLIMATE_START_YEAR=1980 CLIMATE_END_YEAR=2025 Rscript scripts/backfill_climate.R  # Daymet zone means, ~2 min per year
 CLIMATE_SOURCE=gridmet CLIMATE_START_YEAR=1979 Rscript scripts/backfill_climate.R  # gridMET zone means to yesterday, ~15 min
+SNOTEL_CSV=local_data/co_snotell_all.csv Rscript scripts/build_snotel_stats.R  # SNOTEL history + normals, ~2 min; rerun each October
 Rscript -e 'shiny::runApp("shiny_app")'
 ```
 
-Full rebuild order: `build_reference` → `backfill_streamflow` → `backfill_history` → `backfill_daily_records` → `backfill_reservoirs` → `build_flow_stats` → `build_water_rights` (`build_hydrofabric` is independent; rerun `build_reach_network` after it or after the gage list changes; `build_climate_zones` → `backfill_climate` (both sources) → `build_flow_stats` is the climate chain; Daymet only needs a rerun each spring when the prior year is released, and `daily_fetch` keeps gridMET current). Day to day only `daily_fetch` is needed; rerun the records backfills and `build_flow_stats` every few months since approved records lag about a year.
+Full rebuild order: `build_reference` → `backfill_streamflow` → `backfill_history` → `backfill_daily_records` → `backfill_reservoirs` → `build_flow_stats` → `build_water_rights` (`build_hydrofabric` is independent; rerun `build_reach_network` after it or after the gage list changes; `build_climate_zones` → `backfill_climate` (both sources) → `build_flow_stats` is the climate chain; Daymet only needs a rerun each spring when the prior year is released, and `daily_fetch` keeps gridMET current). SNOTEL: `build_reference` → `build_snotel_stats` once, then each October after the water year closes. Day to day only `daily_fetch` is needed; rerun the records backfills and `build_flow_stats` every few months since approved records lag about a year.
 
 -   CDSS API key: fetch scripts read `scripts/api_key.txt` when sourced (gitignored). In CI it is written from the `CDSS_API_KEY` secret.
 -   No test suite, linter, or package structure (no DESCRIPTION/renv). Verify by running scripts on a short range and checking row counts, dates, and NAs.
@@ -74,6 +75,10 @@ Write using the tidyverse style. When generating text, avoid em dashes and other
 | `climate_doy_stats` | zone_id, source, variable, mmdd | none |
 | `reference/climate_zones` (+ `.geojson`) | zone_id | none |
 | `reference/daymet_weights` | zone_id, cell | none |
+| `snotel_daily` (current water year) | site_id, date | wy |
+| `snotel_history` (archive, not read by the app) | site_id, date | wy |
+| `snotel_doy_stats` | site_id, variable, mmdd | none |
+| `reference/snotel_sites` | site_id | none (with lat/long, basin, elev_band) |
 
 Output under `data/*/` is gitignored. Input CSVs (`data/structures.csv`, `data/stream_gages.csv`, `data/reservoirs.csv`) and the hand-curated `data/diversion_profiles.json` (researched history blurbs with sources) are tracked.
 
@@ -87,6 +92,8 @@ Output under `data/*/` is gitignored. Input CSVs (`data/structures.csv`, `data/s
 -   `source = gridmet`: about 4 km, 1979 to yesterday, prcp/tmax/tmin plus grass reference ET (`eto_mm`, Penman-Monteith) and mean vapor pressure deficit. Fetched from the Northwest Knowledge Network THREDDS subset service (no login); weights are computed on the fly from the first file and scaled by cell area because the grid is in degrees. This is the source the app and the current water year use.
 
 HUC8s get a `basin` only when most of their area is inside a basin polygon; 24 are NA because the basin polygons leave out the Republican, Smoky Hill, Cimarron, Laramie, and a few border drainages. `build_flow_stats` writes `climate_doy_stats` in long form per source (`variable` = `tmax_c`, `tmin_c`, `vpd_kpa`, `swe_mm`, `prcp_wy_mm`, `eto_wy_mm`): the `_wy_` variables are running totals since October 1 over complete water years (daily precipitation is mostly zeros), the rest are ranked by calendar day. The app reads only the gridMET basin series; the HUC8 series and Daymet are stored but not shown yet.
+
+**SNOTEL** (`scripts/fetch_snotel.R`, `build_snotel_stats.R`): all 120 Colorado SNTL sites (118 active) from the NRCS AWDB REST API (`wcc.sc.egov.usda.gov/awdbRestApi/services/v1`, no key, many stations per request), stored in mm and °C. `daily_fetch` upserts active sites into `snotel_daily`, which holds only the current water year. Each October `build_snotel_stats` moves closed water years into `snotel_history`, re-pulls the last closed year (NRCS revises values over the summer), and rebuilds `snotel_doy_stats`: `swe_mm`, `snow_depth_mm`, `tmax_c`, `tmin_c`, and `prcp_wy_mm` (NRCS accumulated precip, which resets Oct 1) by calendar day, plus `med_9120`, the 1991 to 2020 median that matches NRCS "% of median" (checked against AWDB `centralTendencyType=MEDIAN`). History was seeded from an old `snotelr` pull in `local_data/` (gitignored); with no CSV and no history the script pulls the full record from AWDB. `reference/snotel_sites` has `basin` (point in the basin polygons; 2 border sites are NA), `huc8`, and `elev_band` (elevation quartiles).
 
 **Fetch modules** (`scripts/fetch_*.R`, `get_structures.R`): each defines a single-item fetch function and a `*_many` wrapper that loops with `Sys.sleep()` rate limiting and `tryCatch` so one failed site doesn't abort the run. Fetch functions return tibbles and never write files.
 
@@ -123,6 +130,8 @@ Charts are plotly; `R/plotly_theme.R` styles them for the `input_dark_mode()` to
 -   Daymet's Lambert conformal grid is not equal-area: a nominal 1 km cell covers about 1.09 km² on the ground in Colorado. Zone means are unaffected; use `area_km2` (geodesic) from `reference/climate_zones` for volumes (1 mm over 1 km² = 0.8107 AF).
 -   gridMET days end at midnight Mountain Standard Time; values after `last_permanent_slice` in the file metadata (roughly the last two months) are provisional, so `daily_fetch` re-pulls 75 days. Temperatures arrive in Kelvin. Requests past the last available day are clamped, not errors. Its THREDDS subset service returns classic NetCDF only (`accept=netcdf`; `netcdf4` gives a 500).
 -   Every Parquet file in `climate_daily` must carry the same columns: `open_dataset()` takes its schema from the first file and silently drops columns that file lacks. Both fetch modules emit the full column set for that reason.
+-   `snotelr` (NRCS report generator, start-of-day values) dates SWE, snow depth, and accumulated precip one day later than AWDB: its value on D is AWDB's D - 1. Temperatures and daily precip line up. The seed shifts those columns back a day (99.8% SWE agreement with AWDB vs 81% unshifted).
+-   SNOTEL temperature sensors log error values (e.g. repeated -51.3 °C, highs above 100 °C); `qc_snotel()` blanks temperatures outside plausible bounds and negative snow or precip.
 -   gridMET and Daymet agree closely on basin temperature but differ on mountain precipitation (Colorado basin 2024: 580 vs 641 mm), so do not splice them into one series.
 -   Gage colors follow USGS WaterWatch: today's flow vs. same calendar day in prior years (≥ 10 years required), classes <10, 10 to 24, 25 to 75, 76 to 90, >90 percentile plus record high/low. History starts in 1990, so percentiles are based on that period, not the full record.
 -   CDSS `telemetrytimeseriesday` ignores `min-measDate`/`max-measDate` and returns the last year; use `startDate`/`endDate`. Other endpoints (`surfacewatertsday`, `divrecmonth`) accept `min-`/`max-` params.

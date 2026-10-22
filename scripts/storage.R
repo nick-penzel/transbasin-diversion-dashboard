@@ -86,3 +86,16 @@ overwrite_dataset <- function(df, dataset) {
   write_parquet(df, file.path(path, "part-0.parquet"))
   message(sprintf("Wrote %d rows to %s", nrow(df), path))
 }
+
+#' Delete a whole dataset directory, locally or on S3.
+delete_dataset <- function(dataset) {
+  path <- dataset_path(dataset)
+  if (!path_exists(path)) return(invisible(NULL))
+  if (!is_s3(path)) {
+    unlink(path, recursive = TRUE)
+  } else {
+    x <- FileSystem$from_uri(path)
+    x$fs$DeleteDir(x$path)
+  }
+  message(sprintf("Deleted %s", path))
+}

@@ -1,5 +1,5 @@
-# Daily fetch: diversion telemetry, streamflow, and reservoir storage for a
-# date range, upserted
+# Daily fetch: diversion telemetry, streamflow, reservoir storage, and SNOTEL
+# for a date range, upserted
 # into partitioned Parquet datasets under data_root(). Defaults to the last
 # 7 days so provisional values that get revised are refreshed. gridMET climate
 # is refreshed for the 75 days up to END_DATE, since its recent values stay
@@ -19,6 +19,7 @@ source("scripts/fetch_telemetry.R")
 source("scripts/fetch_streamflow.R")
 source("scripts/fetch_reservoirs.R")
 source("scripts/fetch_gridmet.R")
+source("scripts/fetch_snotel.R")
 
 args <- commandArgs(trailingOnly = TRUE)
 end_date   <- if (length(args) > 1) as.Date(args[2]) else Sys.Date() - 1
@@ -51,6 +52,13 @@ upsert_dataset(mutate(flow_results, year = as.integer(year(date))), "streamflow_
 upsert_dataset(mutate(res_results, year = as.integer(year(date))),
                "reservoir_storage_daily",
                keys = c("wdid", "date"), partitioning = "year")
+
+snotel_path <- dataset_path("reference/snotel_sites")
+if (path_exists(snotel_path)) {
+  snotel_sites <- open_dataset(snotel_path) |> filter(active) |> collect()
+  fetch_snotel_many(snotel_sites, start_date, end_date) |>
+    upsert_dataset("snotel_daily", keys = c("site_id", "date"), partitioning = "wy")
+}
 
 zones_path <- file.path(dataset_path("reference"), "climate_zones.geojson")
 if (path_exists(zones_path)) {
