@@ -179,6 +179,19 @@ basin_ui <- function(id, basin_names) {
       )
     ),
     bslib::layout_columns(
+      col_widths = c(7, 5),
+      bslib::card(
+        bslib::card_header(
+          class = "d-flex justify-content-between align-items-center",
+          "Snowpack this winter", uiOutput(ns("snow_badge"), inline = TRUE)
+        ),
+        plotlyOutput(ns("snowpack"), height = "340px"),
+        bslib::card_footer(class = "small text-muted", textOutput(ns("snow_note"), inline = TRUE))
+      ),
+      bslib::card(bslib::card_header("SNOTEL sites in this basin today"),
+                  uiOutput(ns("snotel_table")))
+    ),
+    bslib::layout_columns(
       col_widths = c(6, 6),
       bslib::card(bslib::card_header("Transbasin structures, selected year"),
                   plotlyOutput(ns("sankey"), height = "340px")),
@@ -208,8 +221,11 @@ status_dot <- function(color) {
 #' @param climate_wy water-year climate per basin from climate_by_wy().
 #' @param climate daily basin-mean climate (basin, date, prcp_mm, eto_mm, ...).
 #' @param climate_stats running water-year total percentiles by basin and mmdd.
+#' @param snowpack list of SNOTEL `sites`, this water year's `daily` SWE, and
+#'   SWE `normals` by day.
 basin_server <- function(id, outlets, transfers, gage_status, res_status,
-                         storage, climate_wy, climate, climate_stats, dark) {
+                         storage, climate_wy, climate, climate_stats, snowpack,
+                         dark) {
   moduleServer(id, function(input, output, session) {
     outlet_ids <- reactive(filter(outlets, basin == input$basin)$gage_id)
 
@@ -453,6 +469,70 @@ basin_server <- function(id, outlets, transfers, gage_status, res_status,
                hovermode = "x unified",
                margin = list(t = 30, r = 50, b = 30)) |>
         style_plotly(dark(), legend = legend_top)
+    })
+
+    basin_sites <- reactive({
+      req(snowpack$sites)
+      filter(snowpack$sites, basin == input$basin)
+    })
+
+    basin_snow <- reactive({
+      snowpack_series(snowpack$daily, snowpack$normals, basin_sites()$site_id)
+    })
+
+    output$snowpack <- renderPlotly({
+      validate(need(!is.null(basin_snow()),
+                    "No SNOTEL data. Run build_snotel_stats and daily_fetch."))
+      snowpack_plot(basin_snow(), dark())
+    })
+
+    output$snow_badge <- renderUI({
+      req(basin_snow())
+      t <- snowpack_today(basin_snow())
+      req(t, !is.na(t$pct))
+      tags$span(class = "badge rounded-pill text-bg-light border",
+                sprintf("%.0f%% of median", t$pct))
+    })
+
+    output$snow_note <- renderText({
+      s <- basin_snow()
+      req(s)
+      t <- snowpack_today(s)
+      stage <- if (is.null(t)) "" else switch(t$stage,
+        early = "Too early in the season for a meaningful % of median.",
+        melted = sprintf("Snowpack peaked at %.1f in on %s.",
+                         t$this_peak$swe_mm / 25.4, format(t$this_peak$date, "%b %d")),
+        season = "")
+      paste("Average snow water equivalent across", s$n_sites, "SNOTEL sites with a",
+            "1991 to 2020 median. % of median is total SWE over total median at",
+            "the sites reporting that day, as NRCS computes basin indexes.", stage)
+    })
+
+    output$snotel_table <- renderUI({
+      sites <- basin_sites()
+      if (nrow(sites) == 0) return(p(class = "text-muted", "No SNOTEL sites."))
+      latest <- snowpack$daily |>
+        filter(site_id %in% sites$site_id, !is.na(swe_mm)) |>
+        slice_max(date, by = site_id, n = 1, with_ties = FALSE) |>
+        mutate(mmdd = format(date, "%m-%d")) |>
+        left_join(snowpack$normals, by = c("site_id", "mmdd"))
+      x <- sites |>
+        left_join(latest, by = "site_id") |>
+        filter(active) |>
+        arrange(desc(elev_m))
+      status_table(
+        c("Site", "Elevation", "SWE", "% of median"),
+        lapply(seq_len(nrow(x)), function(i) {
+          r <- x[i, ]
+          list(
+            r$name,
+            sprintf("%s ft", format(round(r$elev_m / 0.3048, -1), big.mark = ",")),
+            if (is.na(r$swe_mm)) "n/a" else sprintf("%.1f in", r$swe_mm / 25.4),
+            if (is.na(r$med_9120) || r$med_9120 < min_median_mm || is.na(r$swe_mm)) ""
+            else sprintf("%.0f%%", 100 * r$swe_mm / r$med_9120)
+          )
+        })
+      )
     })
 
     # Each transbasin structure into or out of the basin, largest first

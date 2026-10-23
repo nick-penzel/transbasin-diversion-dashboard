@@ -1,7 +1,7 @@
 # Build reference tables with coordinates for the map: structures (from
 # data/structures.csv + CDSS structure metadata), stream gages (from
 # data/stream_gages.csv + USGS/CDSS station locations), and reservoirs (from
-# data/reservoirs.csv + CDSS structure metadata).
+# data/reservoirs.csv + CDSS structure metadata), and SNOTEL sites (NRCS AWDB).
 #
 # Usage: Rscript scripts/build_reference.R
 
@@ -14,6 +14,7 @@ suppressPackageStartupMessages({
 
 source("scripts/storage.R")
 source("scripts/get_structures.R")
+source("scripts/fetch_snotel.R")
 
 #' Coordinates for CDSS surface water stations by abbrev.
 get_cdss_station_coords <- function(abbrevs) {
@@ -89,3 +90,30 @@ if (nrow(missing) > 0) {
 overwrite_dataset(structures_ref, "reference/structures")
 overwrite_dataset(gages_ref, "reference/gages")
 overwrite_dataset(reservoirs_ref, "reference/reservoirs")
+
+# SNOTEL sites, with basin from the climate zone polygons and elevation quartiles
+snotel_ref <- fetch_snotel_sites() |>
+  mutate(
+    huc8 = substr(huc12, 1, 8),
+    elev_band = cut(elev_m, quantile(elev_m, 0:4 / 4), include.lowest = TRUE,
+                    labels = c("Low", "Low-mid", "High-mid", "High"))
+  )
+
+zones_path <- file.path(dataset_path("reference"), "climate_zones.geojson")
+if (path_exists(zones_path)) {
+  basins <- sf::st_read(local_copy(zones_path), quiet = TRUE) |>
+    filter(zone_type == "basin") |>
+    select(basin)
+  snotel_ref <- snotel_ref |>
+    sf::st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = FALSE) |>
+    sf::st_transform(sf::st_crs(basins)) |>
+    sf::st_join(basins) |>
+    sf::st_drop_geometry() |>
+    distinct(site_id, .keep_all = TRUE)
+} else {
+  message("No climate_zones.geojson; SNOTEL basins left blank")
+  snotel_ref$basin <- NA_character_
+}
+
+overwrite_dataset(mutate(snotel_ref, elev_band = as.character(elev_band)),
+                  "reference/snotel_sites")

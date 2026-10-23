@@ -3330,7 +3330,7 @@
   },
   "files": {
     "app.R": {
-      "checksum": "221b7a679d2258eafa24123670625642"
+      "checksum": "7fc7fc76b794233ed317f24afd2b6b3e"
     },
     "data/basins.geojson": {
       "checksum": "ef4d2beff1b26b1dec8c543057f401c3"
@@ -3354,7 +3354,7 @@
       "checksum": "f7081425ff276490cd8cbd225c74d454"
     },
     "R/mod_basin.R": {
-      "checksum": "9cb84986bfc6c9da56bdff51e8d38548"
+      "checksum": "398a5c51e580b0949ab790a83d483b2d"
     },
     "R/mod_diversion.R": {
       "checksum": "b1557f3db27662d1317d291727a64b40"
@@ -3366,7 +3366,7 @@
       "checksum": "bcdae178343fe520ba6883d547a8267e"
     },
     "R/mod_story.R": {
-      "checksum": "3f14aaa75bdd99c5c219ceb496c929fa"
+      "checksum": "55bf98441049e8634b6bb6a6f1beeee6"
     },
     "R/plotly_theme.R": {
       "checksum": "b0aa170c76c43ac8c9819b210e79ca22"
@@ -3378,7 +3378,10 @@
       "checksum": "db21c126e4a4c7e28d34c16936f4369f"
     },
     "R/shiny_data_source.R": {
-      "checksum": "7f72f9c61099be0478c852f33f50faa1"
+      "checksum": "88ff47cbdab7f2cec3983590789a6f4f"
+    },
+    "R/snowpack.R": {
+      "checksum": "52a464011a2f999d47fa4f00b6572ae5"
     },
     "R/story_data.R": {
       "checksum": "fabc5f93e8845b4afbb7076f27e980ac"
