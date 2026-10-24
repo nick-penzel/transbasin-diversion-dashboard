@@ -136,3 +136,21 @@ snotel_normals <- if (root_exists("snotel_doy_stats")) {
     select(site_id, mmdd, p50, med_9120) |>
     collect()
 }
+
+# Roaring Fork irrigation trial (docs/Irrigation notebooks, copied by
+# scripts/publish_irrigation.R). NULL until published to the data root.
+irrigation_tables <- c(
+  "cu_field_iy", "cu_field_month", "cu_summary", "cu_sensitivity", "cu_et_models",
+  "ditches", "field_ditch", "diversion_month", "lorenz", "concentration", "owner_class",
+  "priority_tercile", "calls_year", "snow_years", "cu_vs_diversion_summary"
+)
+irrigation <- if (root_exists("irrigation/fields.geojson")) {
+  irr <- lapply(irrigation_tables, \(name) read_optional(file.path("irrigation", paste0(name, ".parquet"))))
+  c(setNames(irr, irrigation_tables),
+    list(fields = sf::st_read(root_file("irrigation/fields.geojson"), quiet = TRUE)))
+}
+if (!is.null(irrigation) && root_exists("reference/climate_zones.geojson")) {
+  irrigation$huc <- sf::st_read(root_file("reference/climate_zones.geojson"), quiet = TRUE) |>
+    filter(zone_id == "14010004") |>
+    sf::st_transform(4326)
+}
