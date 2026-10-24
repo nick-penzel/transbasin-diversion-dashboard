@@ -505,7 +505,7 @@ basin_map_key <- function() {
   sw <- function(style, text) tags$span(tags$span(class = "key-mark", style = style), text)
   tags$div(class = "tile-legend",
            sw("border-radius:50%;background:#5fbf6a;border:2px solid #fff;box-shadow:0 0 0 1px #9aa6b2",
-              "River gage, colored by today's flow"),
+              "River gauge, colored by today's flow"),
            sw("border-radius:50%;width:18px;height:18px;background:#5fbf6a;border:2.5px solid var(--deep)",
               "Reservoir, sized by capacity"),
            sw(sprintf("transform:rotate(45deg) scale(0.75);background:%s", transfer_col[["export"]]),

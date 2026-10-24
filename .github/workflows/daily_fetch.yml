@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   fetch:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       TBD_DATA_ROOT: s3://${{ vars.TBD_BUCKET }}
