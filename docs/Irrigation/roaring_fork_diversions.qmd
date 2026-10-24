@@ -1,0 +1,847 @@
+---
+title: "Diversions, water rights, and who benefits in the Roaring Fork"
+subtitle: "Ditches serving the CDSS 2023 irrigated fields, HUC8 14010004"
+date: last-modified
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-summary: "Code"
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+Companion to `roaring_fork_cu.qmd`. It links the 2023 irrigated fields to the ditches that serve them, pulls CDSS diversion records, net amount water rights, and call analysis for those ditches, splits diversions by use, and measures how concentrated acres, consumptive use (CU), diversions, and decreed rights are. The write-up, coverage, and limits are in `diversions_rights.md`.
+
+Privacy rule: no private individual is named. Structure contacts are reduced to entity classes plus curated public names. Assessor owners are stored only as keyed hashes (`OWNER_HASH_KEY`); public entities and ditch companies keep a public label. Ditch names (many are historical family names, such as "Si Johnson Ditch") are CDSS structure names, not owners.
+
+Diversions are summarized by DWR irrigation year (IY, November to October, labeled by the year it ends in).
+
+```{r setup}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(sf)
+
+for (f in list.files("R", full.names = TRUE)) source(f)
+sf_use_s2(FALSE)
+theme_set(theme_minimal(base_size = 12))
+fmt <- function(x, d = 0) format(round(x, d), big.mark = ",", nsmall = max(d, 0))
+pct <- function(x, d = 0) paste0(fmt(100 * x, d), "%")
+key <- function() cdss_key()
+hist_iy <- 2015:2024
+month_of <- function(d) as.integer(format(d, "%m"))
+```
+
+## Fields to ditches
+
+Each field lists up to nine surface water structures (`SW_WDID1..9`); the groundwater columns are empty in this HUC8. A field served by several ditches has its acres split equally among them. That is the CDSS rule: `acresProrated` in `structures/parcelusets` is the parcel area divided by the number of structures that can deliver to it.
+
+```{r links}
+huc <- read_huc8()
+fields <- read_fields(huc)
+links <- cached("field_ditch_div5_2023", \() read_field_ditches(fields, 2023))
+wdids <- sort(unique(links$wdid))
+stopifnot(n_distinct(links$field_id) == nrow(fields), abs(sum(links$acres_split) - sum(fields$acres)) < 0.1)
+
+field_n <- links |>
+  distinct(field_id, n_ditches, acres) |>
+  group_by(n_ditches) |>
+  summarise(fields = n(), acres = sum(acres))
+knitr::kable(field_n, digits = 0, format.args = list(big.mark = ","),
+             col.names = c("Ditches per field", "Fields", "Acres"))
+```
+
+The `r nrow(fields)` fields (`r fmt(sum(fields$acres))` acres) link to `r length(wdids)` distinct structures.
+
+### Agricultural and turf fields
+
+The layer's `COMMENTS` column flags non-farm irrigated turf. Those fields stay in the analysis as their own land class (`data/field_landclass_div5_2023.parquet`, read by the CU notebook).
+
+```{r landclass}
+landclass <- cached("field_landclass_div5_2023", \() field_landclass(links))
+fields_lc <- fields |>
+  st_drop_geometry() |>
+  select(field_id, acres) |>
+  left_join(landclass, by = "field_id")
+knitr::kable(
+  fields_lc |> group_by(land_class, turf_type = coalesce(turf_type, "")) |> summarise(fields = n(), acres = sum(acres), .groups = "drop"),
+  digits = 0, format.args = list(big.mark = ","), col.names = c("Land class", "Turf type", "Fields", "Acres")
+)
+```
+
+### Field layer years
+
+```{r layer-years}
+layer_years <- cached("field_ditch_acres_div5_2010_2023", \() {
+  purrr::map(c(2010, 2015, 2020, 2023), \(y) {
+    read_field_ditches(read_fields(huc, y), y) |>
+      summarise(fields = n_distinct(field_id), ditches = n_distinct(wdid), acres = sum(acres_split)) |>
+      mutate(year = as.character(y))
+  }) |>
+    bind_rows() |>
+    relocate(year)
+})
+knitr::kable(layer_years, digits = 0, format.args = list(big.mark = ","), col.names = c("Layer year", "Fields", "Ditches", "Acres"))
+```
+
+The 2023 layer maps about `r fmt(layer_years$acres[layer_years$year == "2020"] - layer_years$acres[layer_years$year == "2023"], -2)` fewer acres than 2020 inside the HUC8. Nick's read is that this is real dry-up (development and retired hay land); it has not been verified against imagery.
+
+### CDSS parcel use check
+
+```{r parcel-uses}
+pu <- cached("cdss_parcelusets_2023_field_ditches", \() fetch_parcel_uses(wdids, 2023, key()))
+ditch_acres <- links |>
+  group_by(wdid) |>
+  summarise(fields = n_distinct(field_id), acres = sum(acres_split)) |>
+  left_join(pu |> group_by(wdid) |> summarise(pu_acres = sum(acres_prorated)), by = "wdid") |>
+  mutate(
+    serve_acres = pmax(acres, coalesce(pu_acres, 0)),
+    outside_huc = pu_acres - acres > 1
+  )
+pu_r <- cor(ditch_acres$acres, ditch_acres$pu_acres, use = "complete.obs")
+pu_same <- mean(abs(ditch_acres$pu_acres - ditch_acres$acres) < 0.5, na.rm = TRUE)
+outside <- ditch_acres |> filter(outside_huc)
+```
+
+CDSS parcel use records give the same acres per ditch as the shapefile split for most ditches (r = `r fmt(pu_r, 3)`; `r pct(pu_same)` within half an acre), though the 2023 parcel IDs in the database are numbered differently from the shapefile. `r nrow(outside)` ditches also serve parcels whose centroid is outside the HUC8 (`r fmt(sum(outside$pu_acres))` CDSS acres against `r fmt(sum(outside$acres))` mapped in the HUC8). Ditch water is allocated to in-HUC fields by acres over `serve_acres = max(mapped acres, CDSS parcel use acres)`, so in-HUC fields are not credited with water used outside.
+
+## Diversion records
+
+Monthly records for every water class come from `structures/divrec/divrecmonth`, November 2009 to October 2026 (IY2010 to IY2026). The headgate total per month is the sum of the "Total (Diversion)" rows, one per account. Uses come from each class's `U` code; water released back to the stream under an account (T:6/7/8), water carried to another structure (`U:Q` with `To:`), and quantity-only records get their own categories so the categories add up to the headgate total. Administrative records (T:0) and same-structure account transfers are dropped. Water another linked ditch diverted and this one only conveys (carrier T:3 rows, or blank-type `F:` rows from a linked ditch) is dropped before summing across ditches; exchanges, alternate points, augmentation, and storage re-diversions stay.
+
+The IY2026 records are provisional and still being entered. Rerun with a new cache name (or `refresh = TRUE`) in early 2027.
+
+```{r divrec}
+dm <- cached("cdss_divrecmonth_field_ditches_200911_202610", \() fetch_divrecmonth(wdids, "2009-11-01", "2026-10-31", key()))
+tot <- divrec_total(dm) |> mutate(iy = irrigation_year(month_start))
+by_use_raw <- divrec_by_use(dm, linked = wdids) |> mutate(iy = irrigation_year(month_start))
+
+# "Quantity only" on ditches whose other classes are all irrigation is irrigation water
+irr_only <- by_use_raw |>
+  filter(!carried_in, !use %in% c("Quantity only", "Released to stream", "Carried to another structure")) |>
+  group_by(wdid) |>
+  summarise(irr_share = sum(af[use == "Irrigation"]) / sum(af)) |>
+  filter(irr_share >= 0.99) |>
+  pull(wdid)
+by_use <- by_use_raw |>
+  mutate(
+    q_assigned = use == "Quantity only" & wdid %in% irr_only,
+    use = ifelse(q_assigned, "Irrigation", use),
+    pass_through = use %in% pass_through_uses
+  )
+
+reported <- tot |> distinct(wdid, iy)
+
+recon <- tot |>
+  group_by(wdid, iy) |>
+  summarise(total = sum(af), .groups = "drop") |>
+  inner_join(by_use_raw |> filter(!carried_in) |> group_by(wdid, iy) |> summarise(uses = sum(af), .groups = "drop"), by = c("wdid", "iy"))
+recon_ok <- mean(abs(recon$uses / recon$total - 1) < 0.01, na.rm = TRUE)
+
+coverage <- tot |>
+  group_by(iy) |>
+  summarise(
+    ditches = n_distinct(wdid),
+    provisional = mean(approval == "Provisional"),
+    season_ditches = n_distinct(wdid[month_of(month_start) %in% 5:9])
+  ) |>
+  left_join(reported |> left_join(ditch_acres, by = "wdid") |> group_by(iy) |> summarise(acres = sum(acres)), by = "iy")
+knitr::kable(coverage |> mutate(provisional = pct(provisional), acres = fmt(acres)),
+             col.names = c("Irrigation year", "Ditches with records", "Provisional share of ditch-months",
+                           "Ditches with May to Sep records", "Mapped acres on reporting ditches"))
+no_rec <- setdiff(wdids, tot$wdid)
+```
+
+Use categories add up to the headgate total in `r pct(recon_ok)` of ditch-years (carried-in water aside). `r length(no_rec)` of the `r length(wdids)` structures have no records in IY2010 to IY2026; they serve `r fmt(sum(ditch_acres$acres[ditch_acres$wdid %in% no_rec]))` mapped acres. `r sum(by_use$q_assigned)` quantity-only ditch-months (`r fmt(sum(by_use$af[by_use$q_assigned]))` AF over the record) on irrigation-only ditches are assigned to irrigation.
+
+```{r iy2026-lag}
+lag_tbl <- tot |>
+  filter(iy %in% 2024:2026, month_of(month_start) %in% 5:9) |>
+  mutate(month = factor(format(month_start, "%b"), month.abb[5:9])) |>
+  count(iy, month, name = "ditches") |>
+  pivot_wider(names_from = iy, values_from = ditches)
+knitr::kable(lag_tbl, caption = "Ditches with a record, by month")
+```
+
+### Diversions by use
+
+Means are over the years in each period, with every ditch-year that reported counted.
+
+```{r use-split}
+period_label <- function(iy) case_when(iy %in% hist_iy ~ "IY2015-2024 mean", iy == 2025 ~ "IY2025", iy == 2026 ~ "IY2026 (partial)")
+use_tbl <- by_use |>
+  filter(!carried_in, iy >= 2015) |>
+  mutate(period = period_label(iy)) |>
+  group_by(period) |>
+  mutate(n_years = n_distinct(iy)) |>
+  group_by(period, use) |>
+  summarise(af = sum(af) / first(n_years), .groups = "drop") |>
+  group_by(period) |>
+  mutate(share = af / sum(af)) |>
+  ungroup()
+use_wide <- use_tbl |>
+  mutate(cell = paste0(fmt(af, -2), " (", pct(share), ")")) |>
+  select(use, period, cell) |>
+  pivot_wider(names_from = period, values_from = cell, values_fill = "") |>
+  rename(`Use (water class)` = use) |>
+  arrange(desc(`Use (water class)` == "Irrigation"))
+knitr::kable(use_wide, caption = "Headgate diversions by use, acre-feet per year (share)")
+```
+
+### Pass-through water
+
+Fishery and recreation water runs through ponds and amenity streams and returns to the river. It is reported here and left out of the diversion-to-field and equity totals.
+
+```{r pass-through}
+st <- cached("cdss_structures_wd38", \() fetch_structures_wd(38, key()))
+pt <- by_use |>
+  filter(pass_through, iy %in% c(hist_iy, 2025)) |>
+  mutate(period = period_label(iy)) |>
+  group_by(wdid, period, use, carried_in) |>
+  summarise(af = sum(af), .groups = "drop") |>
+  mutate(af = ifelse(period == "IY2015-2024 mean", af / length(hist_iy), af)) |>
+  left_join(st |> select(wdid, name), by = "wdid") |>
+  left_join(ditch_acres |> select(wdid, acres), by = "wdid") |>
+  select(name, use, carried_in, acres, period, af) |>
+  pivot_wider(names_from = period, values_from = af, values_fill = 0) |>
+  arrange(desc(`IY2015-2024 mean`))
+knitr::kable(head(pt, 8), digits = 0, format.args = list(big.mark = ","),
+             col.names = c("Structure", "Use", "Carried from another linked ditch", "Mapped acres", "IY2015-2024 mean (AF/yr)", "IY2025 (AF)"))
+```
+
+RFC Ditch (`3801541`, Roaring Fork River at stream mile 27.5, Pitkin County, on record since 2004) is the headgate of a private club's water system: eight RFC ponds, seven wells, a pump and pipeline, an augmentation plan, and an exchange (cases 95CW0356, 97CW0053, 05CW0139, 07CW0054, 16CW3136). Its own diversions are recreation class. Its old irrigation rights (1885 to 1904 appropriations) now show zero net absolute, consistent with a change of use, and its active right is a 1995 junior 19.9 cfs for storage, irrigation, recreation, and fishery. The irrigation water for its two golf course polygons (58.6 mapped acres) comes through alternate-point classes from Grace and Shehi Ditch and Red Rock Bluff Ditch. It stays in the linked set because it serves mapped turf; its recreation water counts as pass-through.
+
+### Use mix
+
+```{r mix}
+mix <- by_use |>
+  filter(!carried_in, iy %in% c(hist_iy, 2025)) |>
+  ditch_use_mix()
+mix_tbl <- ditch_acres |>
+  left_join(mix, by = "wdid") |>
+  left_join(reported |> filter(iy %in% c(hist_iy, 2025)) |> count(wdid, name = "n_years"), by = "wdid") |>
+  mutate(mix = coalesce(mix, "no records IY2015-2025")) |>
+  group_by(mix) |>
+  summarise(ditches = n(), acres = sum(acres), diversion_af = sum(total_af / n_years, na.rm = TRUE),
+            irrigation_af = sum(irr_af / n_years, na.rm = TRUE)) |>
+  arrange(desc(acres))
+knitr::kable(mix_tbl, digits = 0, format.args = list(big.mark = ","),
+             col.names = c("Use mix (IY2015-2025 records)", "Ditches", "Mapped acres", "Diversion (AF/yr)", "Irrigation class (AF/yr)"))
+```
+
+A ditch is "irrigation only" when 99% or more of its recorded water is irrigation class. AF per year is each ditch's mean over the years it reported.
+
+### Structures and contacts
+
+```{r structures}
+st_f <- st |> filter(wdid %in% wdids)
+contact_tbl <- st_f |>
+  left_join(ditch_acres, by = "wdid") |>
+  group_by(contact_classes) |>
+  summarise(ditches = n(), acres = sum(acres)) |>
+  arrange(desc(acres))
+knitr::kable(contact_tbl, digits = 0, col.names = c("Contact entity classes", "Ditches", "Mapped acres"))
+```
+
+CDSS lists contacts (often a ditch rider, company officer, or agent), not owners or shareholders. Public entities and ditch companies among the contacts of linked structures: `r paste(sort(unique(unlist(strsplit(na.omit(st_f$contact_public), "; ")))), collapse = "; ")`.
+
+## Water rights
+
+A right counts as irrigation when its decreed uses include 1 (irrigation) or X (all beneficial uses), everywhere in this notebook (`is_irrigation_use()`).
+
+```{r rights}
+rights <- cached("cdss_netamount_wd38", \() fetch_net_rights(38, key()))
+r_f <- rights |> filter(wdid %in% wdids)
+dr <- ditch_rights(r_f)
+uses_tbl <- r_f |>
+  filter(decreed_units == "C", net_absolute > 0) |>
+  mutate(group = case_when(
+    decreed_uses %in% c("1", "X") ~ "Irrigation only (or all uses)",
+    is_irrigation_use(decreed_uses) ~ "Irrigation plus other uses",
+    TRUE ~ "No irrigation use"
+  )) |>
+  group_by(group) |>
+  summarise(rights = n(), cfs = sum(net_absolute))
+knitr::kable(uses_tbl, digits = 1, col.names = c("Decreed uses", "Rights", "Absolute cfs"))
+```
+
+`r nrow(r_f)` net amount rights sit on `r n_distinct(r_f$wdid)` of the linked structures; all are in cfs. `r nrow(dr)` structures hold absolute rights totaling `r fmt(sum(dr$cfs_abs))` cfs. Rights decreed at other structures (alternate points, exchanges, augmentation plans, reservoir releases) are not counted.
+
+## Irrigation windows for the CU notebook
+
+For each field and IY2025 and IY2026: the first and last month (November to October order) any linked ditch recorded irrigation-class diversion. A ditch uses its records when it reported that year through at least September; otherwise its climatology (months with irrigation diversion in at least half of the IY2015 to 2024 years it reported). Ditches with no records give NA.
+
+```{r windows}
+irr_month <- by_use |>
+  filter(!carried_in, use == "Irrigation") |>
+  group_by(wdid, month_start) |>
+  summarise(irr_af = sum(af), .groups = "drop")
+ditch_month <- tot |>
+  distinct(wdid, month_start) |>
+  left_join(irr_month, by = c("wdid", "month_start")) |>
+  mutate(irr_af = coalesce(irr_af, 0))
+ditch_month_out <- cached("ditch_month_irrigation", \() {
+  ditch_month |> filter(month_start >= as.Date("2023-10-01"), month_start <= as.Date("2026-10-01"))
+})
+
+iy_pos <- function(m) (m - 11) %% 12 + 1
+pos_month <- function(p) (p + 9) %% 12 + 1
+clim <- ditch_month |>
+  mutate(iy = irrigation_year(month_start), m = month_of(month_start)) |>
+  filter(iy %in% hist_iy) |>
+  group_by(wdid) |>
+  mutate(n_years = n_distinct(iy)) |>
+  group_by(wdid, m) |>
+  summarise(share = sum(irr_af > 0) / first(n_years), .groups = "drop") |>
+  filter(share >= 0.5) |>
+  select(wdid, m)
+rec <- ditch_month |>
+  mutate(iy = irrigation_year(month_start), m = month_of(month_start)) |>
+  filter(iy %in% 2025:2026) |>
+  group_by(wdid, iy) |>
+  filter(max(iy_pos(m)) >= iy_pos(9)) |>
+  ungroup()
+ditch_window <- tidyr::expand_grid(wdid = wdids, iy = 2025:2026) |>
+  left_join(rec |> filter(irr_af > 0) |> group_by(wdid, iy) |> summarise(p = list(iy_pos(m)), .groups = "drop"), by = c("wdid", "iy")) |>
+  left_join(rec |> distinct(wdid, iy) |> mutate(has_rec = TRUE), by = c("wdid", "iy")) |>
+  left_join(clim |> group_by(wdid) |> summarise(pc = list(iy_pos(m))), by = "wdid") |>
+  mutate(
+    basis = case_when(coalesce(has_rec, FALSE) ~ "records", lengths(pc) > 0 ~ "climatology", TRUE ~ NA_character_),
+    p = ifelse(basis %in% "records", p, ifelse(basis %in% "climatology", pc, list(integer())))
+  )
+field_window <- cached("field_irrigation_window", \() {
+  links |>
+    select(field_id, wdid) |>
+    inner_join(ditch_window, by = "wdid", relationship = "many-to-many") |>
+    group_by(field_id, iy) |>
+    summarise(
+      basis = if (any(basis %in% "records" & lengths(p) > 0)) "records" else if (any(basis %in% "climatology")) "climatology" else NA_character_,
+      p = list(unlist(if (basis[1] %in% "records") p[basis %in% "records"] else p)),
+      .groups = "drop"
+    ) |>
+    mutate(
+      first_month = vapply(p, \(v) if (length(v)) as.integer(pos_month(min(v))) else NA_integer_, 1L),
+      last_month = vapply(p, \(v) if (length(v)) as.integer(pos_month(max(v))) else NA_integer_, 1L),
+      basis = ifelse(is.na(first_month), NA_character_, basis)
+    ) |>
+    select(field_id, iy, first_month, last_month, basis)
+})
+knitr::kable(count(field_window, iy, basis, first_month, last_month, sort = TRUE) |> head(10),
+             caption = "Most common field irrigation windows")
+```
+
+## Who benefits
+
+"User" is defined at the levels the data support:
+
+- **Field**: the 668 CDSS polygons.
+- **Field block**: fields closer than 10 m to each other, a proxy for an operation.
+- **Tax parcel**: assessor parcels under the fields (statewide OIT composite).
+- **Owner**: parcels grouped by normalized assessor owner name, stored as a keyed hash.
+- **Ditch**: the structure, the level at which diversions and rights are recorded.
+
+Ditch quantities are allocated to fields by each field's share of the acres the ditch serves. That makes diversion per acre equal within a ditch by construction, so field, block, parcel, and owner concentration of diversions and rights reflect differences between ditches and in acreage, not within-ditch shares. Diversion means are over the years each ditch reported; ditches with no records stay NA and are left out of diversion statistics. The equity tables use agricultural fields; turf is summarized on its own.
+
+```{r cu}
+cu_raw <- arrow::read_parquet("data/cu_field_wy.parquet")
+if (!"iy" %in% names(cu_raw)) cu_raw <- rename(cu_raw, iy = wy)
+cu_method <- if ("A_daily_cul" %in% cu_raw$method) "A_daily_cul" else "A_daily_mix"
+cu_period_name <- setdiff(unique(cu_raw$period), "may_sep")[1]
+has_niwr <- "niwr_mm" %in% names(cu_raw)
+cu <- cu_raw |>
+  filter(method == cu_method, eta == "eemetric", period == cu_period_name) |>
+  select(field_id, iy, cu_af, cu_mm, irrigated, shorted, any_of("niwr_mm"))
+stopifnot(n_distinct(cu$field_id) == nrow(fields))
+```
+
+CU is method `r cu_method`, eeMETRIC, period `r cu_period_name`.
+
+```{r ditch-table}
+irr_mean <- ditch_mean_af(by_use |> filter(!carried_in, use == "Irrigation"), reported, hist_iy)
+irr_by_iy <- by_use |>
+  filter(!carried_in, use == "Irrigation") |>
+  group_by(wdid, iy) |>
+  summarise(irr_af = sum(af), .groups = "drop") |>
+  right_join(reported, by = c("wdid", "iy")) |>
+  mutate(irr_af = coalesce(irr_af, 0))
+
+link_alloc <- links |>
+  left_join(landclass |> select(field_id, land_class), by = "field_id") |>
+  left_join(ditch_acres |> select(wdid, serve_acres), by = "wdid") |>
+  left_join(dr |> select(wdid, cfs_abs), by = "wdid") |>
+  left_join(irr_mean |> select(wdid, irr_af_mean = af_mean), by = "wdid") |>
+  left_join(irr_by_iy |> filter(iy == 2025) |> select(wdid, irr_af_2025 = irr_af), by = "wdid") |>
+  left_join(cu |> filter(iy == 2025) |> select(field_id, cu_2025 = cu_af), by = "field_id") |>
+  left_join(cu |> filter(iy == 2026) |> select(field_id, cu_2026 = cu_af), by = "field_id") |>
+  mutate(
+    share = acres_split / serve_acres,
+    cfs = coalesce(cfs_abs, 0) * share,
+    irr_af_mean = irr_af_mean * share,
+    irr_af_2025 = irr_af_2025 * share,
+    cu_2025 = cu_2025 * acres_split / acres,
+    cu_2026 = cu_2026 * acres_split / acres
+  )
+
+ditch_tbl <- link_alloc |>
+  group_by(wdid) |>
+  summarise(
+    acres = sum(acres_split), ag_acres = sum(acres_split[land_class == "agricultural"]),
+    cfs = sum(cfs), irr_af_mean = sum(irr_af_mean), irr_af_2025 = sum(irr_af_2025),
+    cu_2025 = sum(cu_2025), cu_2026 = sum(cu_2026)
+  ) |>
+  left_join(dr, by = "wdid") |>
+  left_join(st |> select(wdid, name, water_source), by = "wdid") |>
+  left_join(mix |> select(wdid, mix), by = "wdid") |>
+  left_join(irr_mean |> select(wdid, n_years), by = "wdid")
+stopifnot(nrow(ditch_tbl) == length(wdids), abs(sum(ditch_tbl$cu_2025) - sum(cu$cu_af[cu$iy == 2025])) < 1)
+
+top_tbl <- ditch_tbl |>
+  filter(!is.na(irr_af_mean)) |>
+  arrange(desc(irr_af_mean)) |>
+  head(15) |>
+  transmute(name, acres, n_years, irr_af_mean, af_per_ac = irr_af_mean / acres, cfs_abs, wmean_admin, cu_2025, mix)
+knitr::kable(top_tbl, digits = c(0, 0, 0, 0, 1, 1, 0, 0, 0), format.args = list(big.mark = ","),
+             col.names = c("Ditch", "Mapped acres", "Years reported", "Irr. diversion to HUC fields (AF/yr)", "AF per mapped acre",
+                           "Absolute cfs", "cfs-weighted admin no.", "CU IY2025 (AF)", "Use mix"),
+             caption = "Fifteen largest irrigation diverters, IY2015-2024 mean over reported years")
+```
+
+### Owners
+
+```{r owners}
+ov <- cached("field_parcel_overlay_oit2026_div5_2023", \() {
+  bb <- st_bbox(st_transform(st_buffer(st_union(fields), 500), 4326))
+  field_parcel_overlay(fields, fetch_oit_parcels(as.numeric(bb)))
+})
+owners <- cached("oit_parcel_owners_hashed_huc14010004_2026", \() {
+  bb <- st_bbox(st_transform(st_buffer(st_union(fields), 500), 4326))
+  fetch_parcel_owners(as.numeric(bb), distinct(ov, parcel_id, county), reveal = FALSE)
+})
+stopifnot(!"owner_name" %in% names(owners))
+owner_cov <- ov |>
+  left_join(owners, by = c("parcel_id", "county")) |>
+  summarise(parcels = n_distinct(paste(county, parcel_id)), with_owner = n_distinct(paste(county, parcel_id)[!is.na(owner_id)]),
+            owners = n_distinct(owner_id, na.rm = TRUE), withheld_acres = sum(overlap_acres[owner_class %in% "withheld"]),
+            missing_acres = sum(overlap_acres[owner_class %in% "missing"]), known_share = sum(overlap_acres[!is.na(owner_id)]) / sum(overlap_acres))
+knitr::kable(count(owners, county, owner_class), col.names = c("County", "Owner class", "Parcels"))
+```
+
+`r owner_cov$with_owner` of the `r owner_cov$parcels` parcels under the fields have a usable owner name, grouping into `r owner_cov$owners` owners after normalization (`r pct(owner_cov$known_share)` of overlay acres). Eagle County submits "EAGLE COUNTY PROPERTY OWNER" for every parcel, so its `r fmt(owner_cov$withheld_acres)` acres have no owner; they are left out of the owner level.
+
+### Concentration
+
+```{r concentration}
+blocks <- field_blocks(fields, 10)
+field_alloc <- link_alloc |>
+  group_by(field_id, land_class) |>
+  summarise(acres = first(acres), across(c(cfs, irr_af_mean, irr_af_2025, cu_2025, cu_2026), \(x) sum(x)), .groups = "drop") |>
+  left_join(blocks, by = "field_id")
+parcel_w <- ov |>
+  group_by(field_id) |>
+  mutate(w = overlap_acres / sum(overlap_acres)) |>
+  ungroup() |>
+  left_join(owners, by = c("parcel_id", "county"))
+vars <- c(acres = "Irrigated acres", cu_2025 = "CU IY2025 (AF)", cu_2026 = "CU IY2026 (AF)",
+          irr_af_mean = "Irrigation diversion IY2015-2024 (AF/yr)", cfs = "Absolute decreed cfs")
+level_tables <- function(fa) {
+  pw <- parcel_w |>
+    inner_join(fa, by = "field_id") |>
+    mutate(across(all_of(names(vars)), \(x) x * w))
+  list(
+    Field = fa,
+    `Field block` = fa |> group_by(block_id) |> summarise(across(all_of(names(vars)), sum)),
+    `Tax parcel` = pw |> group_by(county, parcel_id) |> summarise(across(all_of(names(vars)), sum), .groups = "drop"),
+    Owner = pw |> filter(!is.na(owner_id)) |> group_by(owner_id) |> summarise(across(all_of(names(vars)), sum)),
+    Ditch = link_alloc |> semi_join(fa, by = "field_id") |> group_by(wdid) |>
+      summarise(acres = sum(acres_split), across(c(cu_2025, cu_2026, irr_af_mean, cfs), sum))
+  )
+}
+ag_levels <- level_tables(filter(field_alloc, land_class == "agricultural"))
+conc <- purrr::imap(ag_levels, \(d, lvl) {
+  purrr::map(names(vars), \(v) concentration(d[[v]]) |> mutate(level = lvl, quantity = vars[[v]])) |> bind_rows()
+}) |>
+  bind_rows()
+knitr::kable(
+  conc |>
+    filter(quantity %in% vars[c("acres", "cu_2025", "irr_af_mean", "cfs")]) |>
+    transmute(level, quantity, n, gini = round(gini, 2), top10pct = pct(top10pct_share), top10 = pct(top10_share), holders_for_half),
+  col.names = c("Level", "Quantity", "Holders", "Gini", "Top 10% hold", "Top 10 hold", "Holders with half"),
+  caption = "Agricultural fields. Diversion rows count only ditches with records."
+)
+```
+
+```{r turf}
+turf_tbl <- field_alloc |>
+  left_join(landclass |> select(field_id, turf_type), by = "field_id") |>
+  mutate(group = ifelse(land_class == "turf", paste("Turf:", turf_type), "Agricultural")) |>
+  group_by(group) |>
+  summarise(fields = n(), acres = sum(acres), cu_2025 = sum(cu_2025), cu_2026 = sum(cu_2026),
+            irr_af_mean = sum(irr_af_mean, na.rm = TRUE)) |>
+  mutate(cu_ac_2025 = cu_2025 / acres)
+knitr::kable(turf_tbl, digits = c(0, 0, 0, 0, 0, 0, 2), format.args = list(big.mark = ","),
+             col.names = c("Land class", "Fields", "Acres", "CU IY2025 (AF)", "CU IY2026 (AF)", "Irr. diversion IY2015-24 (AF/yr)", "CU AF/ac IY2025"))
+```
+
+```{r lorenz, fig.height = 4.5}
+lz <- purrr::imap(ag_levels[c("Field block", "Owner", "Ditch")], \(d, lvl) {
+  purrr::map(c("acres", "cu_2025", "irr_af_mean", "cfs"), \(v) lorenz(d[[v]]) |> mutate(level = lvl, quantity = vars[[v]])) |> bind_rows()
+}) |>
+  bind_rows() |>
+  mutate(level = factor(level, c("Field block", "Owner", "Ditch")))
+ggplot(lz, aes(holders, amount, color = quantity)) +
+  geom_abline(linetype = "dashed", color = "grey60") +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~level, nrow = 1) +
+  scale_color_viridis_d(end = 0.85) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_y_continuous(labels = scales::percent) +
+  coord_equal() +
+  labs(x = "Holders, smallest to largest", y = "Share of total", color = NULL,
+       title = "Lorenz curves, agricultural fields") +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(nrow = 2))
+```
+
+```{r top-owners}
+own <- ag_levels$Owner |>
+  left_join(owners |> distinct(owner_id, owner_class, owner_public), by = "owner_id") |>
+  arrange(desc(acres)) |>
+  mutate(rank = row_number(), acre_share = acres / sum(acres), cu_share = cu_2025 / sum(cu_2025),
+         label = coalesce(owner_public, paste0("Owner ", rank, " (", owner_class, ")")))
+knitr::kable(
+  own |> head(15) |> transmute(label, acres, acre_share = pct(acre_share, 1), cu_2025, cu_share = pct(cu_share, 1), irr_af_mean),
+  digits = 0, format.args = list(big.mark = ","),
+  col.names = c("Owner", "Ag acres", "Share of ag acres", "CU IY2025 (AF)", "Share of CU", "Irr. diversion (AF/yr)"),
+  caption = paste("Fifteen largest agricultural landowners (anonymized unless a public entity or ditch company).",
+                  "Diversion is NA when any of the owner's fields sits on a ditch with no records.")
+)
+own_class <- own |>
+  group_by(owner_class) |>
+  summarise(owners = n(), acres = sum(acres), cu_2025 = sum(cu_2025)) |>
+  mutate(acre_share = pct(acres / sum(acres)), cu_share = pct(cu_2025 / sum(cu_2025)))
+knitr::kable(own_class, digits = 0, format.args = list(big.mark = ","),
+             col.names = c("Owner class", "Owners", "Ag acres", "CU IY2025 (AF)", "Share of acres", "Share of CU"))
+```
+
+### Diversion per mapped acre
+
+```{r per-acre}
+rep_d <- ditch_tbl |> filter(!is.na(irr_af_mean), acres > 0)
+pa <- tibble::tibble(
+  quantity = c("Decreed cfs per mapped acre (ditches with rights)", "Irrigation diversion per mapped acre, IY2015-2024 mean",
+               "Irrigation diversion per mapped acre, IY2025"),
+  ditches = c(sum(!is.na(ditch_tbl$cfs_abs)), nrow(rep_d), sum(!is.na(ditch_tbl$irr_af_2025) & ditch_tbl$wdid %in% reported$wdid[reported$iy == 2025])),
+  gini = c(
+    gini_per_acre(ditch_tbl$cfs[!is.na(ditch_tbl$cfs_abs)], ditch_tbl$acres[!is.na(ditch_tbl$cfs_abs)]),
+    gini_per_acre(rep_d$irr_af_mean, rep_d$acres),
+    with(ditch_tbl |> filter(wdid %in% reported$wdid[reported$iy == 2025]), gini_per_acre(irr_af_2025, acres))
+  )
+)
+knitr::kable(pa, digits = 2, col.names = c("Quantity", "Ditches", "Gini across mapped acres"))
+```
+
+```{r adequacy}
+if (has_niwr) {
+  adq <- cu |>
+    filter(irrigated, niwr_mm > 0) |>
+    mutate(adequacy = cu_mm / niwr_mm) |>
+    left_join(landclass |> select(field_id, land_class), by = "field_id")
+  adq_tbl <- adq |>
+    group_by(iy, land_class) |>
+    summarise(fields = n(), p10 = quantile(adequacy, 0.1, na.rm = TRUE), median = median(adequacy, na.rm = TRUE),
+              p90 = quantile(adequacy, 0.9, na.rm = TRUE), below_0_75 = mean(adequacy < 0.75, na.rm = TRUE), .groups = "drop")
+  knitr::kable(adq_tbl, digits = 2, caption = "Adequacy, CU / NIWR per field (Molden & Gates, 1990)")
+} else {
+  cat("The CU export does not carry `niwr_mm` yet; adequacy (CU / NIWR) is computed once it does.")
+}
+```
+
+## Priority and calls
+
+Dry and wet years come from April 1 snow water equivalent, the mean of the seven Roaring Fork (HUC8 14010004) SNOTEL sites with a full record since 2010.
+
+```{r snow-years}
+sites <- arrow::open_dataset("../../data/reference/snotel_sites") |> collect() |> filter(huc8 == "14010004")
+apr1 <- bind_rows(
+  arrow::open_dataset("../../data/snotel_history") |> filter(site_id %in% sites$site_id) |> select(site_id, date, swe_mm) |> collect(),
+  arrow::open_dataset("../../data/snotel_daily") |> filter(site_id %in% sites$site_id) |> select(site_id, date, swe_mm) |> collect()
+) |>
+  filter(format(date, "%m-%d") == "04-01") |>
+  mutate(year = as.integer(format(date, "%Y"))) |>
+  filter(year >= 2010)
+full_sites <- apr1 |> filter(year <= 2025) |> count(site_id) |> filter(n == max(n)) |> pull(site_id)
+swe <- apr1 |>
+  filter(site_id %in% full_sites) |>
+  group_by(year) |>
+  summarise(swe_mm = mean(swe_mm, na.rm = TRUE)) |>
+  arrange(swe_mm)
+swe_hist <- swe |> filter(year <= 2025)
+dry <- head(swe_hist$year, 3)
+wet <- tail(swe_hist$year, 3)
+yr_kind <- function(y) case_when(y %in% dry ~ "dry", y %in% wet ~ "wet", TRUE ~ "other")
+```
+
+Dry years: `r paste(dry, collapse = ", ")`; wet years: `r paste(wet, collapse = ", ")`. April 1, 2026 SWE was `r fmt(swe$swe_mm[swe$year == 2026])` mm, the lowest since 2010 (median `r fmt(median(swe_hist$swe_mm))` mm), but IY2026 diversion records are partial.
+
+Daily call analysis (`analysisservices/callanalysisbywdid`) says, for each absolute right on a linked ditch, what share of each day it was out of priority and which call caused it.
+
+```{r calls}
+abs_rights <- r_f |> filter(decreed_units == "C", net_absolute > 0)
+ca <- cached("cdss_callanalysis_field_ditch_rights_20100101_20261022", \() {
+  fetch_call_analysis(distinct(abs_rights, wdid, admin_number), "2010-01-01", "2026-10-22", key())
+})
+n_rights <- nrow(distinct(abs_rights, wdid, admin_number))
+n_done <- nrow(distinct(ca, wdid, admin_number))
+
+caller_group <- function(x) case_when(
+  grepl("GRAND VALLEY|CAMEO|ORCHARD MESA|GVIC|PALISADE", x) ~ "Colorado mainstem (Cameo / Grand Valley)",
+  grepl("SHOSHONE", x) ~ "Shoshone",
+  x == "" | is.na(x) ~ NA_character_,
+  TRUE ~ paste("Local:", x)
+)
+season <- ca |>
+  filter(month_of(date) %in% 4:10) |>
+  mutate(year = as.integer(format(date, "%Y")))
+caller_tbl <- season |>
+  filter(oop_pct > 0) |>
+  mutate(caller = caller_group(sub(";.*", "", caller))) |>
+  group_by(caller) |>
+  summarise(rights = n_distinct(paste(wdid, admin_number)), ditches = n_distinct(wdid),
+            days = n_distinct(date), years = paste(range(year), collapse = "-")) |>
+  arrange(desc(days))
+knitr::kable(caller_tbl, col.names = c("Calling structure", "Rights called out", "Ditches", "Days (Apr-Oct)", "Years"))
+```
+
+Call analysis covers `r n_done` of `r n_rights` rights (the rest returned errors).
+
+```{r priority}
+rights_day <- season |>
+  inner_join(abs_rights |> distinct(wdid, admin_number, net_absolute) |> group_by(wdid, admin_number) |>
+               summarise(cfs = sum(net_absolute), .groups = "drop"), by = c("wdid", "admin_number"))
+ditch_year_calls <- rights_day |>
+  group_by(wdid, year, date) |>
+  summarise(share_out = sum(cfs * oop_pct / 100) / sum(cfs), senior_out = oop_pct[which.min(admin_number)] > 0,
+            any_out = any(oop_pct > 0), .groups = "drop") |>
+  group_by(wdid, year) |>
+  summarise(cfs_share_out = mean(share_out), senior_days = sum(senior_out), any_days = sum(any_out), .groups = "drop")
+
+trib_group <- function(src) case_when(
+  src == "ROARING FORK RIVER" ~ "Roaring Fork mainstem",
+  src == "CRYSTAL RIVER" ~ "Crystal River",
+  src == "FRYINGPAN RIVER" ~ "Fryingpan River",
+  src == "SNOWMASS CREEK" ~ "Snowmass Creek",
+  src == "CAPITOL CREEK" ~ "Capitol Creek",
+  src == "CATTLE CREEK" ~ "Cattle Creek",
+  src == "FOURMILE CREEK" ~ "Fourmile Creek",
+  TRUE ~ "Other tributaries"
+)
+prio <- ditch_tbl |>
+  filter(!is.na(wmean_admin), ag_acres > 0) |>
+  arrange(wmean_admin) |>
+  mutate(
+    cum = cumsum(acres) / sum(acres),
+    tercile = cut(cum, c(0, 1/3, 2/3, 1), labels = c("Senior", "Middle", "Junior"), include.lowest = TRUE),
+    trib = trib_group(water_source)
+  )
+
+season_div <- by_use |>
+  filter(!carried_in, use == "Irrigation", month_of(month_start) %in% 5:9) |>
+  mutate(part = ifelse(month_of(month_start) %in% 5:6, "may_jun", "jul_sep"), aug = t %in% "A") |>
+  group_by(wdid, iy, part) |>
+  summarise(aug_af = sum(af[aug]), af = sum(af), .groups = "drop") |>
+  pivot_wider(names_from = part, values_from = c(af, aug_af), values_fill = 0) |>
+  right_join(reported |> filter(iy %in% 2010:2025), by = c("wdid", "iy")) |>
+  mutate(across(starts_with("af_") | starts_with("aug_af_"), \(x) coalesce(x, 0)))
+
+summarise_group <- function(d, grp) {
+  keyed <- d |> select(wdid, acres, all_of(grp))
+  calls <- ditch_year_calls |>
+    filter(year <= 2025) |>
+    mutate(kind = yr_kind(year)) |>
+    filter(kind != "other") |>
+    inner_join(keyed, by = "wdid") |>
+    group_by(across(all_of(c(grp, "kind")))) |>
+    summarise(senior_days = weighted.mean(senior_days, acres), cfs_out = weighted.mean(cfs_share_out, acres), .groups = "drop")
+  divs <- season_div |>
+    mutate(kind = yr_kind(iy)) |>
+    filter(kind != "other") |>
+    inner_join(keyed, by = "wdid") |>
+    group_by(across(all_of(c(grp, "kind")))) |>
+    summarise(late_early = sum(af_jul_sep) / sum(af_may_jun),
+              aug_share = sum(aug_af_may_jun + aug_af_jul_sep) / sum(af_may_jun + af_jul_sep), .groups = "drop")
+  d |>
+    group_by(across(all_of(grp))) |>
+    summarise(ditches = n(), acres = sum(acres), cfs_100ac = 100 * sum(cfs_abs) / sum(acres),
+              admin = paste(fmt(min(wmean_admin)), "to", fmt(max(wmean_admin)))) |>
+    left_join(pivot_wider(calls, names_from = kind, values_from = c(senior_days, cfs_out)), by = grp) |>
+    left_join(pivot_wider(divs, names_from = kind, values_from = c(late_early, aug_share)), by = grp)
+}
+cols <- c("Ditches", "Mapped acres", "cfs per 100 ac", "cfs-weighted admin no.",
+          "Senior right days out, dry", "Senior right days out, wet", "Share of cfs out, dry", "Share of cfs out, wet",
+          "Jul-Sep / May-Jun diversion, dry", "Jul-Sep / May-Jun diversion, wet", "Augmented share of irr., dry", "Augmented share of irr., wet")
+t_tbl <- summarise_group(prio, "tercile")
+knitr::kable(t_tbl, digits = 2, format.args = list(big.mark = ","), col.names = c("Tercile", cols),
+             caption = "Terciles of mapped acres by cfs-weighted admin number. Call and share columns are acre-weighted means over the dry or wet years.")
+g_tbl <- summarise_group(prio, "trib") |> arrange(desc(acres))
+knitr::kable(g_tbl, digits = 2, format.args = list(big.mark = ","), col.names = c("Source", cols),
+             caption = "By water source (the ditch's CDSS water source)")
+
+within <- ditch_year_calls |>
+  filter(year %in% dry) |>
+  group_by(wdid) |>
+  summarise(cfs_out = mean(cfs_share_out)) |>
+  inner_join(prio |> select(wdid, wmean_admin, trib), by = "wdid") |>
+  group_by(trib) |>
+  filter(n() >= 5) |>
+  summarise(ditches = n(), spearman = cor(wmean_admin, cfs_out, method = "spearman"))
+knitr::kable(within, digits = 2, col.names = c("Source", "Ditches", "Spearman: admin no. vs share of cfs out of priority, dry years"))
+```
+
+## Consumptive use against diversion
+
+Matched ditches only: ditches with an IY record and at least 5 mapped acres, all of whose mapped fields are served only by ditches that also reported. Net CU adds Reclamation's 18.9% incidental use (`incidental_use_frac`, see `methods.md` section 2).
+
+```{r cu-vs-div, fig.height = 4.5}
+cu_vs <- purrr::map(2025:2026, \(y) {
+  rep_y <- reported$wdid[reported$iy == y]
+  ok_fields <- links |> group_by(field_id) |> filter(all(wdid %in% rep_y)) |> distinct(field_id)
+  link_alloc |>
+    filter(wdid %in% rep_y) |>
+    mutate(ok = field_id %in% ok_fields$field_id) |>
+    group_by(wdid) |>
+    filter(all(ok), sum(acres_split) >= 5) |>
+    summarise(acres = sum(acres_split), cu = sum(.data[[paste0("cu_", y)]])) |>
+    inner_join(irr_by_iy |> filter(iy == y) |> select(wdid, irr_af), by = "wdid") |>
+    left_join(ditch_acres |> select(wdid, serve_acres), by = "wdid") |>
+    mutate(irr_af = irr_af * acres / serve_acres, iy = y)
+}) |>
+  bind_rows() |>
+  filter(irr_af > 0)
+cu_vs_tbl <- cu_vs |>
+  group_by(iy) |>
+  summarise(median = median(cu / irr_af), ditches = n(), acres = sum(acres), irr_af = sum(irr_af), cu = sum(cu)) |>
+  mutate(ratio = cu / irr_af, net_ratio = (1 + incidental_use_frac) * ratio, iy = as.character(iy)) |>
+  relocate(median, .after = last_col())
+knitr::kable(cu_vs_tbl, digits = c(0, 0, 0, 0, 0, 3, 3, 3), format.args = list(big.mark = ","),
+             col.names = c("IY", "Ditches", "Mapped acres", "Irr. diversion (AF)", "CU (AF)", "CU / diversion", "Net CU / diversion", "Ditch median"))
+ggplot(filter(cu_vs, iy == 2025), aes(irr_af / acres, cu / acres, size = acres)) +
+  geom_point(alpha = 0.6, color = viridisLite::viridis(1, begin = 0.3)) +
+  scale_x_log10() +
+  labs(x = "Irrigation class diversion, AF per mapped acre (log)", y = "CU, AF per acre",
+       size = "Mapped acres", title = "IY2025 diversion vs consumptive use, matched ditches")
+```
+
+## Tax parcels
+
+```{r parcels}
+land_use_class <- function(x) case_when(
+  grepl("agri|irrig|meadow|grazing|farm|ranch", x, ignore.case = TRUE) ~ "Agricultural",
+  grepl("resid|single family|multi", x, ignore.case = TRUE) ~ "Residential",
+  grepl("exempt|commerc|recreat|golf|vacant", x, ignore.case = TRUE) ~ "Commercial, exempt, or vacant",
+  is.na(x) ~ "Missing",
+  TRUE ~ "County code, needs crosswalk"
+)
+lu_tbl <- ov |>
+  mutate(class = land_use_class(land_use)) |>
+  group_by(county, class) |>
+  summarise(parcels = n_distinct(parcel_id), acres = sum(overlap_acres), .groups = "drop")
+knitr::kable(lu_tbl, digits = 0, col.names = c("County", "Assessor land use", "Parcels", "Field acres"))
+```
+
+`r n_distinct(ov$parcel_id)` tax parcels lie under the fields. Overlapping parcel polygons add up to `r fmt(sum(ov$overlap_acres))` acres against `r fmt(sum(fields$acres))` field acres, so the overlay is split by area share within each field.
+
+## Dashboard tables
+
+Compact tables for the dashboard's irrigation tab go to `data/dashboard/`, next to the CU notebook's. `scripts/publish_irrigation.R` copies them to the data root. No owner IDs leave this notebook: owner rows are reduced to Lorenz curve points and class totals.
+
+```{r dashboard-export}
+dash <- "data/dashboard"
+dir.create(dash, showWarnings = FALSE)
+put <- \(x, name) arrow::write_parquet(x, file.path(dash, paste0(name, ".parquet")))
+
+ditch_out <- ditch_tbl |>
+  left_join(prio |> select(wdid, tercile, trib), by = "wdid") |>
+  left_join(st |> select(wdid, structure_type, lat, lon), by = "wdid") |>
+  left_join(irr_by_iy |> filter(iy == 2026) |> select(wdid, irr_af_2026 = irr_af), by = "wdid") |>
+  left_join(ditch_acres |> select(wdid, serve_acres), by = "wdid") |>
+  mutate(irr_af_2026 = irr_af_2026 * acres / serve_acres, tercile = as.character(tercile)) |>
+  select(wdid, name, structure_type, water_source, trib, acres, ag_acres, cfs_abs, wmean_admin, tercile, mix,
+         n_years, irr_af_mean, irr_af_2025, irr_af_2026, cu_2025, cu_2026, lat, lon)
+put(ditch_out, "ditches")
+put(select(links, field_id, wdid, acres_split), "field_ditch")
+put(use_tbl, "diversion_use")
+
+div_month <- by_use |>
+  filter(!carried_in, use == "Irrigation", iy >= 2015) |>
+  inner_join(ditch_acres |> select(wdid, acres, serve_acres), by = "wdid") |>
+  group_by(month_start) |>
+  summarise(irr_af = sum(af * acres / serve_acres), ditches = n_distinct(wdid), .groups = "drop") |>
+  mutate(iy = irrigation_year(month_start))
+put(div_month, "diversion_month")
+
+thin <- function(d, n = 150) {
+  d |>
+    group_by(level, quantity) |>
+    reframe(as_tibble(approx(holders, amount, seq(0, 1, length.out = n), ties = "ordered"))) |>
+    rename(holders = x, amount = y)
+}
+lz_all <- purrr::imap(ag_levels, \(d, lvl) {
+  purrr::map(c("acres", "cu_2025", "cu_2026", "irr_af_mean", "cfs"), \(v) lorenz(d[[v]]) |> mutate(level = lvl, quantity = v)) |>
+    bind_rows()
+}) |>
+  bind_rows()
+put(thin(lz_all), "lorenz")
+conc_all <- purrr::imap(ag_levels, \(d, lvl) {
+  purrr::map(c("acres", "cu_2025", "cu_2026", "irr_af_mean", "cfs"), \(v) concentration(d[[v]]) |> mutate(level = lvl, quantity = v)) |>
+    bind_rows()
+}) |>
+  bind_rows()
+put(conc_all, "concentration")
+put(own_class, "owner_class")
+put(pa, "per_acre_gini")
+put(turf_tbl, "turf")
+
+put(mutate(t_tbl, tercile = as.character(tercile)), "priority_tercile")
+put(g_tbl, "priority_source")
+put(caller_tbl, "callers")
+put(within, "priority_spearman")
+calls_year <- ditch_year_calls |>
+  inner_join(prio |> select(wdid, acres, tercile), by = "wdid") |>
+  group_by(year, tercile = as.character(tercile)) |>
+  summarise(senior_days = weighted.mean(senior_days, acres), cfs_share_out = weighted.mean(cfs_share_out, acres),
+            ditches = n(), .groups = "drop")
+put(calls_year, "calls_year")
+put(mutate(swe, kind = yr_kind(year)), "snow_years")
+put(cu_vs, "cu_vs_diversion")
+put(cu_vs_tbl, "cu_vs_diversion_summary")
+
+fig_dir <- file.path(dash, "figures")
+dir.create(fig_dir, showWarnings = FALSE)
+save_fig <- \(p, name, h = 4.2) ggsave(file.path(fig_dir, paste0(name, ".png")), p, width = 8, height = h, dpi = 150, bg = "white")
+lz_fig <- lz_all |>
+  filter(level %in% c("Field block", "Owner", "Ditch"), quantity %in% c("acres", "cu_2025", "irr_af_mean")) |>
+  mutate(level = factor(level, c("Field block", "Owner", "Ditch")), quantity = vars[quantity])
+p_lz <- ggplot(lz_fig, aes(holders, amount, color = quantity)) +
+  geom_abline(linetype = "dashed", color = "grey60") +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~level, nrow = 1) +
+  scale_color_viridis_d(end = 0.8) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_y_continuous(labels = scales::percent) +
+  coord_equal() +
+  labs(x = "Holders, smallest to largest", y = "Share of the total", color = NULL,
+       title = "Lorenz curves, agricultural fields") +
+  theme(legend.position = "bottom")
+save_fig(p_lz, "rights-lorenz", 4)
+p_cvd <- ggplot(filter(cu_vs, iy == 2025), aes(irr_af / acres, cu / acres, size = acres)) +
+  geom_point(alpha = 0.6, color = "#3487A6") +
+  scale_x_log10() +
+  labs(x = "Irrigation diversion, AF per mapped acre (log scale)", y = "Consumptive use, AF per acre",
+       size = "Mapped acres", title = "Irrigation year 2025: diversion and consumptive use on matched ditches")
+save_fig(p_cvd, "rights-cu-vs-diversion")
+```

@@ -13,3 +13,7 @@ nisp.qmd
 data/*/
 
 .DS_Store
+
+# Irrigation module scratch outputs
+docs/Irrigation/data/
+docs/Irrigation/*.html
