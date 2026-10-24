@@ -513,8 +513,13 @@ irrigation_server <- function(id, irr, dark) {
         event_register("plotly_click")
     })
 
-    observeEvent(event_data("plotly_click", source = "irr_ditches"), {
-      k <- event_data("plotly_click", source = "irr_ditches")$key
+    # Wait for the tab to render, or plotly warns that the source is not registered
+    ditch_click <- reactive({
+      req(map_shown())
+      event_data("plotly_click", source = "irr_ditches")
+    })
+    observeEvent(ditch_click(), {
+      k <- ditch_click()$key
       if (length(k)) updateSelectizeInput(session, "ditch", selected = k[[1]])
     })
 
