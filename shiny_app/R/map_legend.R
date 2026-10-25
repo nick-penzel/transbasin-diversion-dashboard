@@ -17,14 +17,14 @@ map_legend_html <- function(classes = flow_classes) {
     tags$div(class = "lg-title mt", "Symbols"),
     tags$div(class = "lg-grid",
       row(swatch("background:#5fbf6a;border:1.5px solid #fff;box-shadow:0 0 0 1px #555;"),
-          "Gage"),
+          "Gauge"),
       row(swatch("background:#5fbf6a;border:2px solid #1f2d50;width:14px;height:14px;"),
           "Reservoir"),
       row(swatch("background:#6a3d9a;width:8px;height:8px;margin:0 3px;"),
           "Transbasin div."),
       row(swatch("background:#9e9e9e;width:8px;height:8px;margin:0 3px;"),
           "Other diversion")),
-    tags$div(class = "lg-note", "Reservoirs sized by capacity. River colors are estimated from nearby gages.")
+    tags$div(class = "lg-note", "Reservoirs sized by capacity. River colors are estimated from nearby gauges.")
   )
 }
 
@@ -41,12 +41,12 @@ statewide_ui <- function(gages, reservoirs) {
   tagList(
     h5("Colorado today"),
     p(class = "small text-muted mb-2",
-      sprintf("%d of %d gages report a ranked flow.", nrow(ranked), nrow(gages))),
+      sprintf("%d of %d gauges report a ranked flow.", nrow(ranked), nrow(gages))),
     div(class = "d-flex rounded overflow-hidden mb-1", style = "height: 14px;",
         lapply(seq_len(nrow(counts)), function(i) {
           if (counts$n[i] == 0) return(NULL)
           div(style = sprintf("width:%.1f%%;background:%s;", counts$pct[i], counts$color[i]),
-              title = sprintf("%s: %d gages", counts$short[i], counts$n[i]))
+              title = sprintf("%s: %d gauges", counts$short[i], counts$n[i]))
         })),
     p(class = "small text-muted mb-3",
       sprintf("%d below normal, %d normal, %d above normal.",
@@ -65,6 +65,6 @@ statewide_ui <- function(gages, reservoirs) {
               format(round(sum(res$storage_af) / 1000), big.mark = ","), nrow(res))),
     hr(),
     p(class = "small text-muted mb-0",
-      "Click a river, gage, reservoir, or diversion for details.")
+      "Click a river, gauge, reservoir, or diversion for details.")
   )
 }

@@ -109,7 +109,7 @@ joyplot_ui <- function(id, gages) {
   ns <- NS(id)
   bslib::layout_sidebar(
     sidebar = bslib::sidebar(
-      selectInput(ns("gage"), "Gage", choices = setNames(gages$id, gages$name)),
+      selectInput(ns("gage"), "Gauge", choices = setNames(gages$id, gages$name)),
       radioButtons(ns("year_type"), "Year type", inline = TRUE,
                    choices = c("Calendar" = "cal", "Water year" = "wy")),
       sliderInput(ns("years"), "Years", min = 1990, max = 2026,

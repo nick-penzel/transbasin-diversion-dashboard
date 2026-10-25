@@ -30,8 +30,8 @@ river_info_ui <- function(reach, flowlines) {
       tags$tbody(
         if (!is.null(reach$pctile)) {
           tags$tr(tags$td("Current condition (est.)"),
-                  tags$td(if (is.na(reach$pctile)) "No connected gage"
-                          else sprintf("Percentile %s (%d connected gages)",
+                  tags$td(if (is.na(reach$pctile)) "No connected gauge"
+                          else sprintf("Percentile %s (%d connected gauges)",
                                        fmt_num(reach$pctile), reach$n_gages)))
         },
         tags$tr(tags$td("Mean annual flow (est.)"),
@@ -50,7 +50,7 @@ river_info_ui <- function(reach, flowlines) {
       )
     ),
     p(class = "small text-muted",
-      "Flow is the NHDPlus EROM gage-adjusted estimate (1971 to 2000),",
+      "Flow is the NHDPlus EROM gauge-adjusted estimate (1971 to 2000),",
       "not an observation.")
   )
 }

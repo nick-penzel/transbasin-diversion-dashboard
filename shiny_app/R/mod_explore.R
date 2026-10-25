@@ -32,7 +32,7 @@ explore_ui <- function(id) {
                         leafletOutput(ns("map"), height = "640px"),
                         basin_map_key(),
                         tags$p(class = "caption",
-                               "Click a gage, reservoir, or diversion for its story.",
+                               "Click a gauge, reservoir, or diversion for its story.",
                                "Click a shaded basin to go there.")),
                tags$aside(class = "basin-stats", uiOutput(ns("stats"))))
     ),
@@ -61,7 +61,7 @@ explore_ui <- function(id) {
     tags$footer(class = "story-foot",
                 tags$p("Data: Colorado Division of Water Resources (CDSS), U.S. Geological",
                        "Survey, U.S. Bureau of Reclamation, and gridMET. Outflow is measured",
-                       "at the main gage(s) where the basin's rivers leave the state.",
+                       "at the main gauge(s) where the basin's rivers leave the state.",
                        "Transfers between basins are counted from 2013, when records fill in;",
                        "recent months are provisional."))
   )
@@ -138,7 +138,7 @@ explore_server <- function(id, story, climate_wy, rivers, basins, structures, ou
                if (is.finite(s$storage$usual_pct))
                  sprintf("usually %.0f%% on this date", s$storage$usual_pct) else ""),
         if (s$gages$n > 0)
-          stat("river", "River gages running low", sprintf("%d of %d", s$gages$low, s$gages$n),
+          stat("river", "River gauges running low", sprintf("%d of %d", s$gages$low, s$gages$n),
                sprintf("%d running higher than usual", s$gages$high))
       )
     })

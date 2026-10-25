@@ -123,9 +123,9 @@ basin_ui <- function(id, basin_names) {
       selectInput(ns("wy"), "Water year", choices = NULL),
       uiOutput(ns("outlets")),
       helpText("Accounting is approximate: outflow is measured at the outlet",
-               "gage(s), transfers come from CDSS diversion records, storage",
+               "gauge(s), transfers come from CDSS diversion records, storage",
                "change covers only the major reservoirs on the map, and",
-               "consumptive use and ungaged tributaries are not included.")
+               "consumptive use and ungauged tributaries are not included.")
     ),
     tags$style(".basin-vb .value-box-value { font-size: 1.25rem; }
                 .basin-vb .value-box-title { font-size: 0.85rem; }"),
@@ -153,7 +153,7 @@ basin_ui <- function(id, basin_names) {
                          "what a well-watered grass surface would use, a measure of atmospheric",
                          "demand, not actual water use. Runoff ratio is outflow plus exports minus",
                          "imports, divided by precipitation volume; it is approximate where an",
-                         "outlet gage also carries out-of-state inflow or misses part of the basin,",
+                         "outlet gauge also carries out-of-state inflow or misses part of the basin,",
                          "and is left blank where imports exceed outflow.")
     ),
     bslib::layout_columns(
@@ -200,7 +200,7 @@ basin_ui <- function(id, basin_names) {
     ),
     bslib::layout_columns(
       col_widths = c(6, 6),
-      bslib::card(bslib::card_header("Gages in this basin today"),
+      bslib::card(bslib::card_header("Gauges in this basin today"),
                   uiOutput(ns("gage_table"))),
       bslib::card(bslib::card_header("Reservoirs in this basin today"),
                   uiOutput(ns("res_table")))
@@ -281,7 +281,7 @@ basin_server <- function(id, outlets, transfers, gage_status, res_status,
 
     output$outlets <- renderUI({
       o <- filter(outlets, basin == input$basin)
-      tagList(tags$label("Outlet gage(s)"),
+      tagList(tags$label("Outlet gauge(s)"),
               tags$ul(class = "small", lapply(o$note, tags$li)))
     })
 
@@ -581,9 +581,9 @@ basin_server <- function(id, outlets, transfers, gage_status, res_status,
     output$gage_table <- renderUI({
       g <- gage_status |> filter(basin == input$basin) |>
         arrange(desc(id %in% outlet_ids()), name)
-      if (nrow(g) == 0) return(p(class = "text-muted", "No gages."))
+      if (nrow(g) == 0) return(p(class = "text-muted", "No gauges."))
       status_table(
-        c("Gage", "Latest", "% of median", "Status"),
+        c("Gauge", "Latest", "% of median", "Status"),
         lapply(seq_len(nrow(g)), function(i) {
           x <- g[i, ]
           list(

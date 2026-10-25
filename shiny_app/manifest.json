@@ -3330,13 +3330,55 @@
   },
   "files": {
     "app.R": {
-      "checksum": "7fc7fc76b794233ed317f24afd2b6b3e"
+      "checksum": "efe6252bb9fd91313411292c73463422"
     },
     "data/basins.geojson": {
       "checksum": "ef4d2beff1b26b1dec8c543057f401c3"
     },
     "data/major_rivers.geojson": {
       "checksum": "376a7ea0e6a3820350d70773d88cd744"
+    },
+    "methods/01-about.md": {
+      "checksum": "ff7b5f3a6ea88b3f15581a968fc6e5c7"
+    },
+    "methods/02-data-sources.md": {
+      "checksum": "fe6ca866eb91d985fc8aea5eab2ae223"
+    },
+    "methods/03-streamflow.md": {
+      "checksum": "2174966d92a7ee9bbc3903fc79d11726"
+    },
+    "methods/04-diversions.md": {
+      "checksum": "ec3033fd00528aef6b152e38db8ccc5f"
+    },
+    "methods/05-reservoirs.md": {
+      "checksum": "aa781a9d4938c44b694ab47696b3cef1"
+    },
+    "methods/06-basin-accounting.md": {
+      "checksum": "15f49d90a2c49f4b69a07a9e3d81458c"
+    },
+    "methods/07-climate-snowpack.md": {
+      "checksum": "72fbf4c6368f488c551ffe738983c73f"
+    },
+    "methods/08-irrigation-cu.md": {
+      "checksum": "33ed64fbd0a41f4e502411111a8c382a"
+    },
+    "methods/09-irrigation-rights.md": {
+      "checksum": "e68aec7764e378a7d149f6e550aba91a"
+    },
+    "methods/figures/cu-et-models.png": {
+      "checksum": "2b299577c42cdfe34ba4c8f205b2fdfa"
+    },
+    "methods/figures/cu-reference-elevation.png": {
+      "checksum": "5d97bda6922182415ed31cf7efecef92"
+    },
+    "methods/figures/cu-water-sources.png": {
+      "checksum": "77ec9db4fc1fc716da7c70c6dfff6188"
+    },
+    "methods/figures/rights-cu-vs-diversion.png": {
+      "checksum": "a70dc815765f0b7d01505730d7a4768b"
+    },
+    "methods/figures/rights-lorenz.png": {
+      "checksum": "75512ced683e4c892ffd42d5f118f591"
     },
     "R/flow_idw.R": {
       "checksum": "9b42b2c6d52b6450edc3d6c6d46a7ac2"
@@ -3351,22 +3393,28 @@
       "checksum": "f1833c29080faa8d7ae440ffd4202d8f"
     },
     "R/map_legend.R": {
-      "checksum": "f7081425ff276490cd8cbd225c74d454"
+      "checksum": "3aea59e14409acabe2e35a350a5632d1"
     },
     "R/mod_basin.R": {
-      "checksum": "398a5c51e580b0949ab790a83d483b2d"
+      "checksum": "5c7cc95ac90e4bcd67f5e09b89cf12b9"
     },
     "R/mod_diversion.R": {
       "checksum": "b1557f3db27662d1317d291727a64b40"
     },
     "R/mod_explore.R": {
-      "checksum": "68d3d7c1b0911dce801832ad23bcea02"
+      "checksum": "2865af55de2064bf93265cce2ba6a5fb"
+    },
+    "R/mod_irrigation.R": {
+      "checksum": "8783d03a2afcf3da84ed78de4455351a"
     },
     "R/mod_joyplot.R": {
-      "checksum": "bcdae178343fe520ba6883d547a8267e"
+      "checksum": "275f3cda901218286765d38ae5c671e0"
+    },
+    "R/mod_methods.R": {
+      "checksum": "c566b167337302ab5a7f485032cbe23c"
     },
     "R/mod_story.R": {
-      "checksum": "55bf98441049e8634b6bb6a6f1beeee6"
+      "checksum": "3df514b8bc613f0348ba2f60f19f67db"
     },
     "R/plotly_theme.R": {
       "checksum": "b0aa170c76c43ac8c9819b210e79ca22"
@@ -3375,10 +3423,10 @@
       "checksum": "a365dfad0184b1f3b2f2d33c99729760"
     },
     "R/river_info.R": {
-      "checksum": "db21c126e4a4c7e28d34c16936f4369f"
+      "checksum": "ba0f877482ab76e53d80f02dda4cf1f4"
     },
     "R/shiny_data_source.R": {
-      "checksum": "88ff47cbdab7f2cec3983590789a6f4f"
+      "checksum": "a21f2fee2845e0cf3ab705c37682a307"
     },
     "R/snowpack.R": {
       "checksum": "52a464011a2f999d47fa4f00b6572ae5"
@@ -3387,10 +3435,16 @@
       "checksum": "fabc5f93e8845b4afbb7076f27e980ac"
     },
     "R/story_plots.R": {
-      "checksum": "b3dd8a97e1be22f279838218cdfefbbc"
+      "checksum": "17f416e9df84d8523899eca152ed3452"
     },
     "www/hero_rivers.png": {
       "checksum": "a715dd284e25303a45eff3dc2dbeada8"
+    },
+    "www/irrigation.css": {
+      "checksum": "1a797075d1485628ab3c7db344c29240"
+    },
+    "www/methods.js": {
+      "checksum": "21d6a5166bc5b26425274aa24eab84b5"
     },
     "www/story.css": {
       "checksum": "e89af6b32ab019a58505f6847e0b05ad"

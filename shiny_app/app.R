@@ -82,7 +82,12 @@ story_reaches <- if (!is.null(flowlines)) {
     left_join(plain_status, by = "class") |>
     st_simplify(dTolerance = 0.0005)
 }
-pro_tabs <- c("Map", "Gage hydrographs", "Diversions", "Basins")
+# Methods book (methods/*.md) and its figures; the Irrigation and Methods tabs
+# show in both views
+methods_book <- methods_chapters("methods")
+addResourcePath("methods-files", "methods")
+
+pro_tabs <- c("Map", "Gauge hydrographs", "Diversions", "Basins")
 public_tabs <- c("story", "explore")
 
 # Site picker values are "d:<wdid>" for diversions, "g:<id>" for gages, and
@@ -90,7 +95,7 @@ public_tabs <- c("story", "explore")
 site_types <- c(d = "diversion", g = "gage", r = "reservoir")
 site_choices <- list(
   Diversions = setNames(paste0("d:", structures$wdid), structures$name),
-  `Stream gages` = setNames(paste0("g:", gages$id), gages$name),
+  `Stream gauges` = setNames(paste0("g:", gages$id), gages$name),
   Reservoirs = setNames(paste0("r:", reservoirs$wdid), reservoirs$name)
 )
 
@@ -103,7 +108,9 @@ ui <- page_navbar(
   header = tagList(
   tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap"),
   tags$link(rel = "stylesheet", href = "story.css"),
+  tags$link(rel = "stylesheet", href = "irrigation.css"),
   tags$script(src = "story.js"),
+  tags$script(src = "methods.js"),
   tags$style(HTML("
     .flow-anim { animation: flow-downstream 0.8s linear infinite; }
     @keyframes flow-downstream { to { stroke-dashoffset: -16; } }
@@ -154,9 +161,11 @@ ui <- page_navbar(
       plotlyOutput("hydrograph", height = "380px")
     )
   ),
-  nav_panel("Gage hydrographs", joyplot_ui("joy", gages)),
+  nav_panel("Gauge hydrographs", joyplot_ui("joy", gages)),
   nav_panel("Diversions", diversion_ui("div", structures)),
   nav_panel("Basins", basin_ui("basin", sort(basins$basin))),
+  nav_panel("Irrigation", value = "irrigation", irrigation_ui("irr")),
+  nav_panel("Methods", value = "methods", methods_ui(methods_book)),
   nav_spacer(),
   nav_item(input_switch("pro_view", "Professional view", width = "auto")),
   nav_item(input_dark_mode(id = "dark_mode", mode = "light"))
@@ -186,7 +195,7 @@ server <- function(input, output, session) {
       selected(click$id)
       updateSelectInput(session, "site", selected = paste0("d:", click$id))
       clicked(list(type = "diversion", id = click$id))
-    } else if (identical(click$group, "Gages")) {
+    } else if (identical(click$group, "Gauges")) {
       selected_gage(click$id)
       updateSelectInput(session, "site", selected = paste0("g:", click$id))
       clicked(list(type = "gage", id = click$id))
@@ -203,7 +212,7 @@ server <- function(input, output, session) {
     }
   })
 
-  observeEvent(input$open_gage, nav_select("nav", "Gage hydrographs"))
+  observeEvent(input$open_gage, nav_select("nav", "Gauge hydrographs"))
   observeEvent(input$open_diversion, nav_select("nav", "Diversions"))
 
   # ---- Map ----
@@ -263,12 +272,12 @@ server <- function(input, output, session) {
                          format(date, "%b %d, %Y"))
       ) |>
       addCircleMarkers(
-        data = gage_points, layerId = ~id, group = "Gages",
+        data = gage_points, layerId = ~id, group = "Gauges",
         radius = 5.5, fillColor = ~color, fillOpacity = 1,
         color = "#ffffff", weight = 1.5, label = ~name
       ) |>
       addLayersControl(baseGroups = c("Esri light gray", "Esri dark gray", "OpenStreetMap"),
-                       overlayGroups = c("Rivers", "Basins", "Gages", "Reservoirs",
+                       overlayGroups = c("Rivers", "Basins", "Gauges", "Reservoirs",
                                          "Diversions"),
                        options = layersControlOptions(collapsed = FALSE)) |>
       addControl(map_legend_html(), position = "bottomright", className = "")
@@ -411,6 +420,7 @@ server <- function(input, output, session) {
   })
 
   joyplot_server("joy", gages, selected_gage, dark)
+  irrigation_server("irr", irrigation, dark)
   basin_server("basin", basin_outlets, basin_transfers, gage_points,
                reservoir_points, basin_storage, basin_climate_wy, basin_climate,
                basin_climate_stats, snowpack, dark)

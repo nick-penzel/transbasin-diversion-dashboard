@@ -1,0 +1,1067 @@
+---
+title: "Irrigation consumptive use in the Roaring Fork"
+subtitle: "Trial model for HUC8 14010004, irrigation years 2025 and 2026"
+date: last-modified
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-summary: "Code"
+    embed-resources: true
+bibliography: references.bib
+csl: https://www.zotero.org/styles/apa
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+How much irrigation water do Roaring Fork fields consume? Consumption here means water that leaves the basin as evapotranspiration (ET) and does not return to the river. It is not the same as diversion. Most diverted water returns to the stream as surface or subsurface return flow.
+
+Satellites measure actual ET (ETa) from all sources: precipitation, stored soil water, shallow groundwater, and irrigation. The task is to remove the part precipitation would have supplied anyway. This notebook tries two ways:
+
+-   **Method A, accounting consumptive use.** Irrigation consumptive use is the part of ETa not supplied by effective precipitation. The main estimate is a daily FAO-56 soil water balance [@allen1998] driven by OpenET ETa. It tracks precipitation and irrigation water separately in the root zone and irrigates only when the field's ditches were running. A monthly version, ETa minus effective precipitation, mirrors Reclamation's current Upper Colorado method [@reclamation2025; @pearson2024] and is kept for comparison.
+-   **Method B, depletion above the native baseline.** ETa on irrigated fields minus ETa on nearby non-irrigated grass and shrub land at the same elevation. The baseline is what the land would use without irrigation: precipitation, stored snowmelt, and whatever natural groundwater the native cover reaches. This is still consumption, but it answers a different question than Method A (see Comparison).
+
+Both use OpenET [@melton2022] for ETa. Years are irrigation years, November to October, the year used by DWR diversion records and Reclamation's CU&L accounting. Irrigation year 2026 ends September 30 here because OpenET has not published October 2026 yet. Scientific background and citations are in `methods.md`. Diversions, water rights, and who uses the water are in `diversions_rights.md`.
+
+```{r setup}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(sf)
+
+for (f in list.files("R", full.names = TRUE)) source(f)
+
+ee_session <- local({
+  ee <- NULL
+  function() {
+    if (is.null(ee)) ee <<- ee_init()
+    ee
+  }
+})
+
+theme_set(theme_minimal(base_size = 12))
+wy_months <- seq(as.Date("2024-10-01"), as.Date("2026-09-01"), by = "month")
+balance_months <- seq(as.Date("2023-10-01"), as.Date("2026-09-01"), by = "month")
+season <- 5:9
+iy_months_all <- c(11:12, 1:10)
+fmt <- function(x, d = 0) format(round(x, d), big.mark = ",", nsmall = max(d, 0))
+from_diversions <- \() stop("Run roaring_fork_diversions.qmd first; it builds this cache.")
+```
+
+## Study area and fields
+
+Fields come from the CDSS Division 5 irrigated lands layer for 2023, the newest year available. A field belongs to the Roaring Fork when a point on its surface falls inside the HUC8.
+
+```{r fields}
+huc <- read_huc8()
+fields <- read_fields(huc) |>
+  left_join(cached("field_landclass_div5_2023", from_diversions) |> select(field_id, land_class, turf_type),
+            by = "field_id")
+crop_tbl <- fields |>
+  st_drop_geometry() |>
+  count(land_class, crop, irrig_type, wt = acres, name = "acres") |>
+  arrange(land_class, desc(acres))
+
+knitr::kable(crop_tbl, digits = 0, col.names = c("Land class", "Crop", "Irrigation", "Acres"))
+```
+
+The layer has `r nrow(fields)` fields covering `r fmt(sum(fields$acres))` acres, all in Water District 38. Most are small, with a median of `r fmt(median(fields$acres), 1)` acres. `r sum(fields$land_class == "turf")` fields (`r fmt(sum(fields$acres[fields$land_class == "turf"]))` acres) are golf courses, a park, a lawn, and ranchettes mapped as grass pasture. They stay in the analysis as a separate turf line (classification in `diversions_rights.md`). Crop type often comes from the NASS Cropland Data Layer (`crop_src`). In mountain valleys, NASS confuses alfalfa with grass hay, so the alfalfa share is probably too high. The crop label matters only for root depth and the Kc × ETo cross-check.
+
+```{r fields-map}
+library(leaflet)
+fields_ll <- st_transform(fields, 4326)
+pal <- colorFactor(viridisLite::viridis(2, end = 0.8), fields_ll$crop)
+leaflet(fields_ll) |>
+  addProviderTiles(providers$Esri.WorldImagery) |>
+  addPolygons(data = st_transform(huc, 4326), fill = FALSE, color = "white", weight = 2) |>
+  addPolygons(color = ~pal(crop), weight = 1, fillOpacity = 0.6,
+              label = ~sprintf("%s, %s, %s, %.1f ac", land_class, crop, irrig_type, acres)) |>
+  addLegend(pal = pal, values = ~crop, title = "Crop (CDSS 2023)")
+```
+
+## Weather
+
+Daily precipitation and temperature come from gridMET [@abatzoglou2013] at the 4 km cell holding each field (`r n_distinct(cached("field_cells_div5_2023", \() gridmet_cells(ee_session(), fields))$cell_id)` cells). Reference ET (ETo, ASCE grass reference; @asce2005) comes from OpenET's gridMET reference ET collection (`reference_et/conus/gridmet/daily/v1`). It runs consistently below raw gridMET ETo, which fits the station-based bias correction OpenET and Reclamation apply [@reclamation2025]. The asset metadata should be checked to confirm it.
+
+```{r weather}
+cells <- cached("field_cells_div5_2023", \() gridmet_cells(ee_session(), fields))
+wx <- cached("gridmet_daily_20231001_20260930", \() gridmet_daily(ee_session(), cells, as.Date("2023-10-01"), as.Date("2026-10-01")))
+
+wx_iy <- wx |>
+  mutate(iy = irr_year(date)) |>
+  filter(iy >= 2025) |>
+  group_by(iy, cell_id) |>
+  summarise(prcp = sum(prcp_mm), eto = sum(eto_mm), eto_raw = sum(eto_gridmet_mm), .groups = "drop") |>
+  inner_join(cells, by = "cell_id", relationship = "many-to-many") |>
+  group_by(iy = as.character(iy)) |>
+  summarise(across(c(prcp, eto, eto_raw), mean))
+eto_ratio <- sum(wx$eto_mm) / sum(wx$eto_gridmet_mm)
+
+knitr::kable(wx_iy, digits = 0, caption = "Irrigation year totals, mean over fields (2026 ends September 30)",
+             col.names = c("Irrigation year", "Precipitation (mm)", "ETo, corrected (mm)", "ETo, raw gridMET (mm)"))
+```
+
+The bias correction lowers gridMET ETo by `r fmt(100 * (1 - eto_ratio), 1)`% here. Precipitation over the fields is a small fraction of evaporative demand. Both years were dry.
+
+### Is gridMET precipitation too low?
+
+Later sections find that ETa on native land exceeds gridMET precipitation, so the precipitation input is checked first. The table compares water-year precipitation at the eight Roaring Fork SNOTEL sites with gridMET and Daymet at the same points. Daymet 2026 is not released yet.
+
+```{r prcp-check}
+sites <- arrow::open_dataset("../../data/reference/snotel_sites") |>
+  collect() |>
+  filter(huc8 == "14010004")
+snotel_wy <- bind_rows(
+  arrow::open_dataset("../../data/snotel_history") |> filter(site_id %in% sites$site_id) |> collect(),
+  arrow::open_dataset("../../data/snotel_daily") |> filter(site_id %in% sites$site_id) |> collect()
+) |>
+  distinct(site_id, date, .keep_all = TRUE) |>
+  filter(wy %in% 2025:2026) |>
+  group_by(site_id, wy) |>
+  summarise(snotel = sum(prcp_mm, na.rm = TRUE), .groups = "drop")
+gm_sites <- cached("gridmet_daily_snotel_rf_sites_20241001_20260930", \() {
+  tr <- gridmet_transform(ee_session())
+  pts <- sites |>
+    transmute(site_id, col = floor((longitude - tr[3]) / tr[1]), row = floor((latitude - tr[6]) / tr[5]),
+              cell_id = paste(row, col, sep = "_"),
+              lon = tr[3] + (col + 0.5) * tr[1], lat = tr[6] + (row + 0.5) * tr[5])
+  gridmet_daily(ee_session(), pts, as.Date("2024-10-01"), as.Date("2026-10-01")) |>
+    inner_join(select(pts, site_id, cell_id), by = "cell_id", relationship = "many-to-many")
+})
+dm_sites <- cached("daymet_prcp_snotel_rf_2024_2025", \() {
+  purrr::pmap(select(sites, site_id, lon = longitude, lat = latitude), \(site_id, lon, lat) {
+    daymet_point_prcp(lon, lat, 2024:2025) |> mutate(site_id = site_id)
+  }) |>
+    bind_rows()
+})
+wy_sum <- function(x, id, name) {
+  x |>
+    mutate(wy = water_year(date)) |>
+    group_by(across(all_of(id)), wy) |>
+    summarise("{name}" := sum(prcp_mm), .groups = "drop")
+}
+prcp_cmp <- snotel_wy |>
+  left_join(wy_sum(gm_sites, "site_id", "gridmet"), by = c("site_id", "wy")) |>
+  left_join(wy_sum(dm_sites, "site_id", "daymet") |> filter(wy == 2025), by = c("site_id", "wy")) |>
+  left_join(select(sites, site_id, name, elev_m), by = "site_id") |>
+  arrange(wy, elev_m)
+knitr::kable(select(prcp_cmp, name, elev_m, wy, snotel, gridmet, daymet), digits = 0,
+             col.names = c("SNOTEL site", "Elevation (m)", "Water year", "SNOTEL (mm)", "gridMET (mm)", "Daymet (mm)"))
+
+dm_cells <- cached("daymet_prcp_field_cells_2024_2025", \() {
+  purrr::pmap(distinct(cells, cell_id, lon, lat), \(cell_id, lon, lat) {
+    daymet_point_prcp(lon, lat, 2024:2025) |> mutate(cell_id = cell_id)
+  }) |>
+    bind_rows()
+})
+cell_cmp <- inner_join(
+  wy_sum(filter(wx, water_year(date) == 2025), "cell_id", "gridmet"),
+  wy_sum(filter(dm_cells, water_year(date) == 2025), "cell_id", "daymet"),
+  by = c("cell_id", "wy")
+) |>
+  inner_join(count(cells, cell_id, name = "n_fields"), by = "cell_id") |>
+  summarise(gridmet = weighted.mean(gridmet, n_fields), daymet = weighted.mean(daymet, n_fields))
+low <- prcp_cmp |>
+  filter(elev_m < 3300) |>
+  summarise(ratio = sum(gridmet) / sum(snotel))
+```
+
+Below 3,300 m, gridMET totals `r fmt(100 * low$ratio)`% of SNOTEL across the sites and years. At the field cells, Daymet water year 2025 precipitation averages `r fmt(cell_cmp$daymet)` mm against gridMET's `r fmt(cell_cmp$gridmet)` mm. gridMET does not look biased low at field elevations, although no valley-floor gauge was checked. The closure gap found later is more likely in ETa or in water reaching native land from outside the field (runon, groundwater).
+
+## Actual ET from OpenET
+
+Monthly ETa comes from OpenET version 2.1 on Earth Engine: the ensemble and its six models (eeMETRIC, SSEBop, geeSEBAL, PT-JPL, SIMS, DisALEXI), all at 30 m. Every month in this period is labeled provisional. Each field is shrunk 30 m inward to drop edge pixels that mix in roads, ditches, and neighbors. Fields too small to shrink keep their full outline.
+
+```{r et}
+et_all <- cached("openet_v2_1_field_monthly_202410_202609", \() {
+  polys <- bind_rows(mutate(fields, buffer_m = 0), shrink_fields(fields, 30))
+  field_et_monthly(ee_session(), polys, wy_months)
+})
+et <- pick_buffer(et_all, 30)
+w <- et_wide(et)
+
+n_small <- n_distinct(et$field_id[et$buffer_m == 0])
+n_filled <- sum(w$ens_filled)
+```
+
+`r n_small` fields were too small to keep at least 10 pixels after shrinking and use their full outline. In `r n_filled` field-months, all in snowy winter months, the ensemble was blank and the mean of the reporting models stands in. SIMS has no value for fields outside its crop type map.
+
+```{r et-models, fig.height = 4.5}
+model_month <- w |>
+  pivot_longer(c(ensemble, all_of(openet_models), eto), names_to = "model", values_to = "et_mm") |>
+  group_by(month, model) |>
+  summarise(et_mm = mean(et_mm, na.rm = TRUE), .groups = "drop")
+
+ggplot(filter(model_month, model != "eto"), aes(month, et_mm, color = model)) +
+  geom_line(data = filter(model_month, model == "eto"), color = "grey60", linetype = "dashed") +
+  geom_line(linewidth = 0.7) +
+  geom_line(data = filter(model_month, model == "ensemble"), color = "black", linewidth = 1.2) +
+  scale_color_viridis_d(end = 0.9) +
+  labs(x = NULL, y = "ET (mm per month)", color = NULL,
+       title = "Mean field ETa by OpenET model",
+       subtitle = "Black: ensemble. Dashed grey: reference ET (ETo).")
+```
+
+```{r et-season}
+season_et <- w |>
+  filter(as.integer(format(month, "%m")) %in% season) |>
+  mutate(iy = irr_year(month)) |>
+  pivot_longer(c(ensemble, all_of(openet_models), eto), names_to = "model", values_to = "et_mm") |>
+  group_by(iy, model, field_id) |>
+  summarise(et_mm = sum(et_mm), .groups = "drop") |>
+  group_by(iy, model) |>
+  summarise(mean_mm = mean(et_mm, na.rm = TRUE), .groups = "drop") |>
+  pivot_wider(names_from = iy, values_from = mean_mm, names_prefix = "IY") |>
+  arrange(desc(IY2026))
+ratio_to_eem <- function(m) season_et |> filter(model == m) |> select(-model) |> unlist() /
+  (season_et |> filter(model == "eemetric") |> select(-model) |> unlist())
+disalexi_ratio <- range(ratio_to_eem("disalexi"))
+spread <- season_et |>
+  filter(model %in% openet_models) |>
+  summarise(across(starts_with("IY"), \(x) max(x) / min(x)))
+
+knitr::kable(season_et, digits = 0, caption = "May to September ET, mean over fields (mm)")
+```
+
+The models disagree a lot over these meadows. DisALEXI gives `r fmt(100 * disalexi_ratio[1])` to `r fmt(100 * disalexi_ratio[2])`% of eeMETRIC. eeMETRIC lands close to the 601 mm it gave for irrigated hay meadows near Kremmling over 2016 to 2019, where it also matched an eddy covariance tower best of the six models [@cabot2022]. The ensemble there was 635 mm; here it is lower because DisALEXI and PT-JPL pull it down. Reclamation's Upper Colorado accounting uses eeMETRIC alone [@reclamation2025]. This notebook uses eeMETRIC as the primary ETa source, with SSEBop and geeSEBAL as the spread. The ensemble is left out of the CU tables. Over these narrow valleys DisALEXI and PT-JPL put irrigated hay at an EToF of about 0.4 to 0.55, which is not plausible, and SIMS assumes unstressed crop ET even on natural land.
+
+```{r buffer-sensitivity}
+buf <- et_all |>
+  distinct() |>
+  filter(variable %in% c("ensemble", "eemetric"), as.integer(format(month, "%m")) %in% season) |>
+  group_by(field_id, buffer_m, variable) |>
+  filter(n_distinct(month) == 10) |>
+  group_by(field_id, variable) |>
+  filter(n_distinct(buffer_m) == 2) |>
+  group_by(variable, buffer_m) |>
+  summarise(et_mm = sum(et_mm, na.rm = TRUE) / n_distinct(field_id) / 2, .groups = "drop") |>
+  pivot_wider(names_from = buffer_m, values_from = et_mm, names_prefix = "buffer_")
+buf_pct <- 100 * (buf$buffer_30 / buf$buffer_0 - 1)
+knitr::kable(buf, digits = 0, caption = "May to September ETa per year, full outline vs 30 m inward buffer (fields with both)")
+```
+
+Dropping edge pixels raises season ETa by `r fmt(min(buf_pct), 1)` to `r fmt(max(buf_pct), 1)`% on average, since field edges border drier roads, ditch banks, and fallow ground. The interior ETa is applied to the full CDSS acreage. That assumes the edge deficit is thermal blur from neighbors rather than drier field margins. The Method A sensitivity shows CU with full-outline ETa instead.
+
+## Which fields were irrigated
+
+The 2023 map will not match every field in 2025 and 2026. Reclamation's Colorado rule calls a field irrigated when its eeMETRIC fraction of reference ET (EToF = ETa / ETo) is above 0.4 in at least three months from May to October [@reclamation2025]. Here that rule does not discriminate. Native shrubland near the fields clears 0.4 in May, June, and October (see Method B), so a dried-up meadow can pass it too.
+
+This notebook compares each field with the native reference instead:
+
+-   A month is wet when the field's EToF exceeds the reference EToF in its elevation band by more than 0.2. In July the reference sits near 0.4 and irrigated fields near 0.7 to 0.8.
+-   **Irrigated** fields are wet in July or August.
+-   **Shorted** fields are not wet in July or August but are wet in May or June. This is the mid-season dry-up that Reclamation's NDVI-based shorted class describes. Shorted fields are irrigated only in their wet months and count consumptive use only in those months.
+-   **Fallow** fields are neither.
+
+The rule needs no October data, so 2026 is judged the same way as 2025.
+
+```{r status}
+elev <- cached("field_elev_div5_2023", \() field_elevation(ee_session(), fields))
+ref_inputs <- function() {
+  fields_all <- bind_rows(lapply(c(2015, 2020, 2023), \(y) read_fields(huc, y)))
+  streams <- st_read("../../data/reference/flowlines.geojson", quiet = TRUE)
+  reference_mask(ee_session(), huc, fields_all, streams)
+}
+ref_tight <- function(threshold = 0.6, min_months = 2) {
+  base <- ref_inputs()
+  purrr::map(c(2025, 2026), \(y) {
+    months <- seq(as.Date(paste0(y - 1, "-10-01")), by = "month", length.out = 12)
+    mask <- reference_mask_tight(ee_session(), base, huc, as.Date(paste0(y, c("-07-01", "-08-01"))),
+                                 threshold, min_months)
+    reference_et_monthly(ee_session(), mask, huc, months, by_class = TRUE)
+  }) |>
+    bind_rows()
+}
+ref_t <- cached("openet_v2_1_reference_tight_monthly_202410_202609", \() ref_tight())
+ref <- pool_classes(ref_t)
+
+ref_etof <- inner_join(
+  field_reference(filter(ref, variable == "eemetric"), elev) |> select(field_id, month, ref_eta = ref_mm),
+  field_reference(filter(ref, variable == "eto"), elev) |> select(field_id, month, ref_eto = ref_mm),
+  by = c("field_id", "month")
+) |>
+  transmute(field_id, month, ref_etof = ref_eta / ref_eto)
+st <- irrigation_status_relative(w, ref_etof)
+status <- filter(st$status, iy >= 2025)
+wet <- st$wet
+field_year <- status |>
+  left_join(st_drop_geometry(fields) |> select(field_id, crop, irrig_type, acres, land_class), by = "field_id")
+recl <- irrigation_status(w) |>
+  filter(iy >= 2025) |>
+  left_join(st_drop_geometry(fields) |> select(field_id, acres), by = "field_id") |>
+  group_by(iy) |>
+  summarise(recl_fields = sum(irrigated), recl_acres = sum(acres[irrigated]))
+
+field_year |>
+  mutate(class = case_when(irrigated ~ "irrigated", shorted ~ "shorted", .default = "fallow")) |>
+  group_by(iy, class) |>
+  summarise(fields = n(), acres = sum(acres), .groups = "drop") |>
+  pivot_wider(names_from = class, values_from = c(fields, acres), names_vary = "slowest", values_fill = 0) |>
+  left_join(recl, by = "iy") |>
+  transmute(iy = as.character(iy), fields_irrigated, acres_irrigated, fields_shorted, acres_shorted,
+            fields_fallow, acres_fallow, recl_fields, recl_acres) |>
+  knitr::kable(digits = 0, col.names = c("Irrigation year", "Irrigated fields", "Irrigated acres",
+                                         "Shorted fields", "Shorted acres", "Fallow fields", "Fallow acres",
+                                         "Reclamation rule: irrigated fields", "Reclamation rule: irrigated acres"))
+```
+
+Per-acre values in the CU tables divide by irrigated plus shorted acres. The water balance table and the plots use fully irrigated fields only.
+
+## Method A: accounting consumptive use
+
+### The soil water balance
+
+Each field gets a daily soil water balance for October 2023 to September 2026. The first year only spins up soil moisture. The balance follows FAO-56 [@allen1998] with a single crop coefficient:
+
+1.  **Snow.** Precipitation falls as snow when mean air temperature is below 1 °C and melts at 3 mm per °C per day above 0 °C.
+2.  **Runoff.** Rain plus melt loses runoff by the SCS curve number method (CN 75).
+3.  **Infiltration and drainage.** The rest enters the root zone. Anything above field capacity drains as deep percolation.
+4.  **ET.** Crop ET is Kc × ETo, reduced by a stress factor when depletion passes the readily available water (p = 0.55 of total available water). There is no ET under snow.
+5.  **Irrigation.** When irrigation is allowed, the root zone refills to field capacity whenever depletion passes the readily available water.
+
+The modeled growing season starts when the 30-day mean air temperature reaches 7 °C, but no earlier than April 15. It ends at the first −4 °C frost after August 15, or October 31 at the latest. The crop curve is shaped for established perennials: Kc rises from 0.4 to its mid-season value over 30 days for grass and 40 days for alfalfa (FAO-56 Table 11), instead of the slow ramp of an annual crop.
+
+Soil water holding capacity is the area-weighted SSURGO `awc_r` over 0 to 100 cm for each field. Root depths are 0.6 m for grass and 1.2 m for alfalfa.
+
+```{r swb-params}
+awc <- cached("field_awc_div5_2023", \() field_awc(fields))
+f_tbl <- st_drop_geometry(fields) |>
+  left_join(cells, by = "field_id") |>
+  left_join(awc, by = "field_id")
+
+knitr::kable(crop_params, caption = "Crop parameters (Kc on grass reference, FAO-56 Tables 11 and 12; stage lengths in days)")
+```
+
+Field available water capacity ranges from `r fmt(min(awc$awc_mm_per_m))` to `r fmt(max(awc$awc_mm_per_m))` mm per meter (median `r fmt(median(awc$awc_mm_per_m))`).
+
+```{r season-length}
+season_len <- f_tbl |>
+  distinct(cell_id) |>
+  mutate(k = purrr::map(cell_id, \(cl) {
+    x <- filter(wx, cell_id == cl)
+    kc_daily(x$date, (x$tmax_c + x$tmin_c) / 2, x$tmin_c, crop_params[2, ])
+  })) |>
+  unnest(k) |>
+  distinct(cell_id, season_start, season_end) |>
+  mutate(year = as.integer(format(season_start, "%Y"))) |>
+  filter(year >= 2025) |>
+  group_by(year) |>
+  summarise(start_median = median(season_start), start_earliest = min(season_start), start_latest = max(season_start),
+            n_floor = sum(format(season_start, "%m-%d") == "04-15"), n_cells = n(),
+            end_median = median(season_end), days_median = median(as.numeric(season_end - season_start)))
+knitr::kable(season_len, caption = "Modeled growing season across gridMET cells")
+```
+
+In 2026 the April 15 floor sets the start in `r season_len$n_floor[season_len$year == 2026]` of `r season_len$n_cells[season_len$year == 2026]` cells; the highest cells start in late May or early June. The modeled season sets the crop coefficient. It also sets the irrigation window only for fields whose ditches have no records (see below).
+
+```{r swb-run}
+pe <- field_pe_monthly(f_tbl, wx) |>
+  filter(month >= as.Date("2024-10-01"))
+
+pe |>
+  group_by(month) |>
+  summarise(across(c(prcp_mm, pe_mm, dp_mm, etc_mm), mean)) |>
+  pivot_longer(-month) |>
+  mutate(name = recode(name, prcp_mm = "Precipitation", pe_mm = "Effective precipitation",
+                       dp_mm = "Deep percolation", etc_mm = "Crop ET (ETc)")) |>
+  ggplot(aes(month, value, color = name)) +
+  geom_line(linewidth = 0.8) +
+  scale_color_viridis_d(end = 0.85) +
+  labs(x = NULL, y = "mm per month", color = NULL, title = "Soil water balance driven by Kc x ETo, mean over fields")
+```
+
+```{r pe-timing}
+pe_iy <- pe |>
+  mutate(iy = irr_year(month)) |>
+  filter(iy >= 2025) |>
+  group_by(iy, field_id) |>
+  summarise(across(ends_with("_mm"), sum), .groups = "drop") |>
+  group_by(iy) |>
+  summarise(across(ends_with("_mm"), mean))
+pe_share <- pe |>
+  mutate(m = as.integer(format(month, "%m")),
+         part = case_when(m %in% c(10:12, 1:2) ~ "oct_feb", m %in% 3:4 ~ "mar_apr", TRUE ~ "may_sep")) |>
+  group_by(part) |>
+  summarise(pe = sum(pe_mm)) |>
+  mutate(pct = 100 * pe / sum(pe))
+share <- \(x) fmt(pe_share$pct[pe_share$part == x])
+```
+
+In this Kc × ETo run, effective precipitation is `r fmt(100 * sum(pe_iy$pe_mm) / sum(pe_iy$prcp_mm))`% of precipitation. That is an upper value, because the balance has no sublimation and no ET under snow. About `r share("oct_feb")`% of it enters the root zone from October to February, `r share("mar_apr")`% in March and April, and `r share("may_sep")`% from May to September. With CN 75 the initial abstraction is about 17 mm a day, which daily gridMET rain and melt almost never exceed, so modeled runoff is near zero. Reclamation's working group flagged winter effective precipitation as the weakest part of this approach.
+
+### Daily balance driven by OpenET ETa
+
+The balance above uses Kc × ETo for its own ET, while consumptive use is computed from OpenET ETa. The two disagree, most in March and April. That made the monthly accounting below drop stored snowmelt (see the next section). The main estimate therefore drives the same balance with the observed ETa:
+
+-   Each month's OpenET ETa is spread over its days in proportion to daily ETo.
+-   Root-zone water is kept in two pools, one from precipitation and one from irrigation.
+-   Daily ETa is drawn first from the snowpack (sublimation, counted as precipitation), then from the root zone.
+-   **Irrigation window.** Irrigation is allowed from the first to the last month the field's ditches recorded irrigation-class diversion that year (CDSS records, or the ditch's 2015 to 2024 pattern when that year has no record). Shorted fields are irrigated only in their wet months. Fields whose ditches have no records use the modeled growing season through September 30.
+-   ETa the root zone cannot supply inside the window is supplied by irrigation. Outside the window it is booked as "other" (shallow groundwater, sublimation the snow model misses, or ETa error) and not counted as irrigation use.
+-   After ET, irrigation refills the root zone to field capacity when depletion passes the readily available water.
+-   The spin-up year (October 2023 to September 2024) has no OpenET data and uses Kc × ETo.
+
+**Consumptive use is ET drawn from the irrigation pool.** Stored snowmelt is credited naturally: whatever precipitation water is in the root zone when irrigation starts is used before or alongside irrigation water. Three rules set how drainage and ET split between the pools when both hold water:
+
+-   **CU&L convention** (headline): drainage removes precipitation water first and ET takes precipitation water first. This matches Reclamation's definition, in which effective precipitation is precipitation minus runoff and minus "deep percolation of any precipitation", and all of it is credited against ETa [@reclamation2025]. On a field kept near field capacity, rain mostly drains.
+-   **mixed**: both in proportion to pool volume.
+-   **precipitation first**: drainage removes irrigation water first and ET takes precipitation water first. This is the most credit precipitation can get.
+
+Outside the irrigation window, the CU&L and precipitation-first rules take ET from leftover irrigation water first.
+
+```{r window}
+win_fd <- cached("field_irrigation_window", from_diversions)
+window <- irrigation_window(win_fd, status, wet, fields$field_id, balance_months)
+win_basis <- win_fd |>
+  filter(iy >= 2025) |>
+  count(iy, basis = coalesce(basis, "no records (modeled season)")) |>
+  pivot_wider(names_from = iy, values_from = n, names_prefix = "IY")
+win_months <- win_fd |>
+  filter(iy >= 2025, !is.na(first_month)) |>
+  count(iy, first_month, last_month) |>
+  slice_max(n, n = 3, by = iy)
+knitr::kable(win_basis, caption = "Source of each field's irrigation window (fields)")
+```
+
+```{r method-a-daily}
+eta_models <- c("eemetric", "ssebop", "geesebal")
+eta_of <- function(var, x = w) x |> transmute(field_id, month, eta_mm = .data[[var]])
+field_year_a <- field_year |> select(field_id, iy, acres, irrigated, shorted)
+shares <- c(cul = "A: daily balance, CU&L convention", mix = "A: daily balance, mixed",
+            precip_first = "A: daily balance, precipitation first")
+
+run_bucket <- function(eta, share = "cul", f = f_tbl, weather = wx, s = swb_settings(), win = window) {
+  field_cu_bucket(f, weather, eta, s = s, share = share, window = win) |>
+    filter(month >= as.Date("2024-10-01"))
+}
+cu_d <- expand_grid(eta = eta_models, share = names(shares)) |>
+  purrr::pmap(\(eta, share) run_bucket(eta_of(eta), share) |> mutate(eta = eta, share = share)) |>
+  bind_rows()
+
+summarise_cu <- function(cu, label, months = season, fy = field_year_a) {
+  cu |>
+    group_by(eta) |>
+    group_modify(\(x, k) cu_period(x, fy, wet, months)) |>
+    group_by(eta, iy) |>
+    summarise(cu_af = sum(cu_af), net_cu_af = sum(net_cu_af),
+              cu_mm = sum(cu_af) / sum(acres[irrigated | shorted]) * 304.8, .groups = "drop") |>
+    mutate(method = label)
+}
+res_d <- purrr::imap(shares, \(label, sh) summarise_cu(filter(cu_d, share == sh), label))
+
+budget <- cu_d |>
+  filter(eta == "eemetric", share == "cul") |>
+  mutate(iy = irr_year(month)) |>
+  filter(iy >= 2025) |>
+  group_by(iy, field_id) |>
+  summarise(across(c(eta_mm, et_p_mm, cu_mm, carry_mm, other_mm, irr_mm, dp_mm), sum), .groups = "drop") |>
+  inner_join(filter(field_year_a, irrigated), by = c("field_id", "iy")) |>
+  group_by(iy = as.character(iy)) |>
+  summarise(across(c(eta_mm, et_p_mm, cu_mm, carry_mm, other_mm, irr_mm, dp_mm), mean))
+knitr::kable(budget, digits = 0,
+             col.names = c("Irrigation year", "ETa", "ET from precipitation", "ET from irrigation (CU)",
+                           "of which carryover, outside window", "ET from other sources", "Irrigation applied",
+                           "Deep percolation"),
+             caption = "Irrigation year balance on fully irrigated fields, eeMETRIC, CU&L convention (mm, mean over fields)")
+```
+
+The most common windows run from `r month.abb[win_months$first_month[1]]` to `r month.abb[win_months$last_month[1]]`. Because ditches run into October, fall irrigation now counts in season. The carryover column is irrigation water left in the root zone when the window closes and used by ET before the next season opens. It is real consumption of diverted water. With a November to October year it is booked in the same irrigation year as the irrigation that supplied it, except for what is still in the soil on November 1.
+
+```{r method-a-daily-plot, fig.height = 4}
+cu_d |>
+  filter(eta == "eemetric", share == "cul") |>
+  mutate(iy = irr_year(month)) |>
+  inner_join(filter(field_year_a, irrigated), by = c("field_id", "iy")) |>
+  group_by(month) |>
+  summarise(Precipitation = mean(et_p_mm), Irrigation = mean(cu_mm), Other = mean(other_mm)) |>
+  pivot_longer(-month, names_to = "source", values_to = "mm") |>
+  mutate(source = factor(source, c("Other", "Precipitation", "Irrigation"))) |>
+  ggplot(aes(month, mm, fill = source)) +
+  geom_col() +
+  scale_fill_viridis_d(end = 0.85) +
+  labs(x = NULL, y = "ETa (mm per month)", fill = "Water source",
+       title = "Where field ETa came from, fully irrigated fields (eeMETRIC, CU&L convention)")
+```
+
+```{r method-a-daily-tbl}
+bind_rows(res_d) |>
+  mutate(iy = as.character(iy)) |>
+  select(method, eta, iy, cu_af, cu_mm, net_cu_af) |>
+  knitr::kable(digits = 0, format.args = list(big.mark = ","),
+               caption = "Method A daily balance, May to September irrigation consumptive use")
+eem <- \(r, y) r$cu_af[r$eta == "eemetric" & r$iy == y]
+pool_start <- cu_d |>
+  filter(eta == "eemetric", format(month, "%m") == "04") |>
+  mutate(iy = irr_year(month)) |>
+  inner_join(filter(field_year_a, irrigated), by = c("field_id", "iy")) |>
+  group_by(share, iy) |>
+  summarise(p = mean(sw_p_mm), i = mean(sw_i_mm), .groups = "drop")
+m1 <- \(sh, y, v) fmt(pool_start[[v]][pool_start$share == sh & pool_start$iy == y])
+gap <- \(a, b, y) fmt(100 * (eem(res_d[[a]], y) / eem(res_d[[b]], y) - 1), 1)
+```
+
+For May to September, the CU&L convention comes out `r gap("mix", "cul", 2025)`% (2025) and `r gap("mix", "cul", 2026)`% (2026) below the mixed rule and `r gap("cul", "precip_first", 2025)`% and `r gap("cul", "precip_first", 2026)`% above precipitation first. Charging drainage to precipitation lowers its credit, but taking ET from precipitation first raises it more. On May 1 the root zone of a fully irrigated field holds about `r m1("cul", 2025, "p")` mm of precipitation water and `r m1("cul", 2025, "i")` mm of irrigation water in 2025, and `r m1("cul", 2026, "p")` and `r m1("cul", 2026, "i")` mm in 2026. Individual fields can come out higher under precipitation first, but the basin totals keep the order shown. The "other" column is ETa outside the irrigation window that the root zone could not supply, mostly in March and April.
+
+### Monthly accounting, Reclamation style
+
+For comparison, Reclamation's monthly form takes the Kc × ETo balance's effective precipitation in the month it soaks in. Any surplus over ETa carries forward to the next month. OpenET's March and April ETa (about 45 to 80 mm a month) is higher than the balance's own shoulder-season ET, so the carry runs out by April. Winter water then never offsets May to September use, even though the balance says the root zone is nearly full on May 1. This form is therefore biased high here, and the daily balance replaces it as the main estimate.
+
+```{r method-a}
+pe_a <- select(pe, field_id, month, pe_mm)
+cu_a <- purrr::map(eta_models, \(v) cu_method_a(eta_of(v), pe_a) |> mutate(eta = v)) |>
+  bind_rows()
+res_a <- summarise_cu(cu_a, "A: monthly, Reclamation style")
+knitr::kable(res_a |> mutate(iy = as.character(iy)) |> select(method, eta, iy, cu_af, cu_mm, net_cu_af),
+             digits = 0, format.args = list(big.mark = ","),
+             caption = "Method A monthly, May to September irrigation consumptive use")
+```
+
+### Sensitivity
+
+The precipitation and spring ETa runs test the closure problem described under Method B. They show how far CU moves if gridMET precipitation is 20% low, or if eeMETRIC's March and April ETa is 30% high.
+
+```{r swb-sensitivity}
+w_full <- et_all |>
+  filter(buffer_m == 0) |>
+  distinct() |>
+  et_wide()
+spring_low <- eta_of("eemetric") |>
+  mutate(eta_mm = if_else(format(month, "%m") %in% c("03", "04"), 0.7 * eta_mm, eta_mm))
+runs <- list(
+  "Base" = list(),
+  "Curve number 85" = list(s = swb_settings(cn = 85)),
+  "Half water holding capacity" = list(f = mutate(f_tbl, awc_mm_per_m = awc_mm_per_m * 0.5)),
+  "1.5x water holding capacity" = list(f = mutate(f_tbl, awc_mm_per_m = awc_mm_per_m * 1.5)),
+  "Melt factor 6 mm/°C/day" = list(s = swb_settings(melt_mm_c = 6)),
+  "Modeled season window for all fields" = list(win = NULL),
+  "Precipitation x 1.2" = list(weather = mutate(wx, prcp_mm = 1.2 * prcp_mm)),
+  "March and April ETa x 0.7" = list(eta = spring_low),
+  "Full-outline ETa (no edge buffer)" = list(eta = eta_of("eemetric", w_full))
+)
+sens <- purrr::imap(runs, \(r, name) {
+  do.call(run_bucket, c(list(eta = r$eta %||% eta_of("eemetric")), r[setdiff(names(r), "eta")])) |>
+    mutate(eta = "eemetric", run = name)
+})
+
+sens_tbl <- sens |>
+  purrr::map(\(x) summarise_cu(x, x$run[1])) |>
+  bind_rows() |>
+  select(run = method, iy, cu_af) |>
+  pivot_wider(names_from = iy, values_from = cu_af, names_prefix = "IY")
+knitr::kable(sens_tbl, digits = 0, format.args = list(big.mark = ","),
+             caption = "Method A daily balance (eeMETRIC, CU&L convention): May to September CU (AF) under alternative settings")
+sens_dev <- sens_tbl |>
+  mutate(across(starts_with("IY"), \(x) 100 * (x / x[1] - 1)))
+dev <- \(run) range(unlist(sens_dev[sens_dev$run %in% run, -1]))
+```
+
+The settings that change the water available at the start of the season matter most. Water holding capacity (`r fmt(dev(c("Half water holding capacity", "1.5x water holding capacity"))[1], 1)`% to `r fmt(dev(c("Half water holding capacity", "1.5x water holding capacity"))[2], 1)`%) sets how much snowmelt the root zone can hold. Precipitation 20% higher lowers CU by `r fmt(-dev("Precipitation x 1.2")[2], 1)`% to `r fmt(-dev("Precipitation x 1.2")[1], 1)`%, and spring ETa 30% lower by `r fmt(-dev("March and April ETa x 0.7")[2], 1)`% to `r fmt(-dev("March and April ETa x 0.7")[1], 1)`%, so even a large closure error moves Method A by well under 10%. Using the modeled season instead of the ditch records moves it by `r fmt(dev("Modeled season window for all fields")[1], 1)`% to `r fmt(dev("Modeled season window for all fields")[2], 1)`%. The edge buffer adds `r fmt(-dev("Full-outline ETa (no edge buffer)")[2], 1)`% to `r fmt(-dev("Full-outline ETa (no edge buffer)")[1], 1)`%. Runoff and melt rate barely matter.
+
+### Likely groundwater-supported use
+
+The balance books every bit of in-window ETa above the root zone's precipitation water as irrigation. That follows the CU&L convention, but valley-bottom meadows also draw on shallow groundwater, much of it raised by irrigation itself. Two signs point to water the ditches did not deliver that month:
+
+-   field-months where every ditch linked to the field reported zero irrigation diversion;
+-   fields whose May to September ETa exceeds ETo (EToF above 1.0), a ponding, wetland, or subirrigation signature.
+
+```{r groundwater}
+fd <- cached("field_ditch_div5_2023", from_diversions)
+ditch_m <- cached("ditch_month_irrigation", from_diversions)
+n_links <- count(distinct(fd, field_id, wdid), field_id, name = "n_links")
+dry_months <- fd |>
+  distinct(field_id, wdid) |>
+  inner_join(ditch_m, by = "wdid", relationship = "many-to-many") |>
+  group_by(field_id, month = month_start) |>
+  summarise(n = n(), dry = all(irr_af == 0), .groups = "drop") |>
+  inner_join(n_links, by = "field_id") |>
+  filter(dry, n == n_links) |>
+  select(field_id, month)
+high_etof <- w |>
+  filter(as.integer(format(month, "%m")) %in% season) |>
+  mutate(iy = irr_year(month)) |>
+  group_by(field_id, iy) |>
+  summarise(etof = sum(eemetric) / sum(eto), .groups = "drop") |>
+  filter(etof > 1)
+cu_head <- filter(cu_d, eta == "eemetric", share == "cul")
+gw_tbl <- bind_rows(
+  summarise_cu(cu_head, "All CU"),
+  summarise_cu(semi_join(cu_head, dry_months, by = c("field_id", "month")), "In months every linked ditch reported zero"),
+  summarise_cu(cu_head |> mutate(iy = irr_year(month)) |> semi_join(high_etof, by = c("field_id", "iy")) |> select(-iy),
+               "On fields with May to September EToF above 1.0")
+) |>
+  select(method, iy, cu_af) |>
+  pivot_wider(names_from = iy, values_from = cu_af, names_prefix = "IY")
+knitr::kable(gw_tbl, digits = -1, format.args = list(big.mark = ","),
+             caption = "Method A (eeMETRIC, CU&L convention) May to September CU with signs of a non-ditch source (AF; the two groups overlap)")
+```
+
+These are flags, not a split of CU by source. Some zero-diversion months are missing records rather than dry ditches, and some EToF above 1.0 is ETa error on small or wet fields. They bound how much of Method A could be natural or irrigation-raised groundwater, which matters in a historical consumptive use analysis.
+
+## Method B: depletion above the native baseline
+
+### Reference land
+
+Reference pixels are NLCD 2021 grassland or shrubland on slopes under 10°, within 5 km of irrigated land, and outside:
+
+-   any field mapped as irrigated in 2015, 2020, or 2023, plus 200 m;
+-   mapped streams (NHDPlus order 3 and up), plus 150 m;
+-   NLCD wetlands, plus 100 m;
+-   NHD high resolution canals and ditches, plus 100 m, which removes seep strips below ditches;
+-   any NHD high resolution stream or artificial path, plus 60 m, which removes small creeks;
+-   any pixel with eeMETRIC EToF above 0.6 in both July and August of that season, which removes unmapped irrigation, subirrigated swales, and seeps the line buffers miss.
+
+The Reclamation irrigation rule (EToF above 0.4 in three months) was tried first for the last exclusion but removed about 65% of the original reference in 2025. Most native shrubland near the fields clears 0.4 in May, June, and October, when soils are wet or ETo is low. Native cover is dry by mid-summer, so July and August separate the two better. Each field's baseline is the pixel-weighted mean monthly ETa of reference pixels in its 100 m elevation band (3DEP 10 m). Bands with fewer than 500 reference pixels borrow the nearest band that has enough.
+
+```{r reference}
+ref_old <- cached("openet_v2_1_reference_monthly_202410_202609", \() {
+  reference_et_monthly(ee_session(), ref_inputs(), huc, wy_months)
+})
+ref_variants <- list(
+  "Original mask" = ref_old,
+  "Tight mask (Jul and Aug EToF > 0.6)" = ref,
+  "Tight, EToF > 0.5" = pool_classes(cached("openet_v2_1_reference_etof05_monthly_202410_202609", \() ref_tight(0.5))),
+  "Tight, EToF > 0.7" = pool_classes(cached("openet_v2_1_reference_etof07_monthly_202410_202609", \() ref_tight(0.7))),
+  "Tight, EToF > 0.6 in either month" = pool_classes(cached("openet_v2_1_reference_etof06_either_monthly_202410_202609", \() ref_tight(0.6, 1))),
+  "Tight, grassland only" = pool_classes(filter(ref_t, nlcd == 71)),
+  "Tight, shrubland only" = pool_classes(filter(ref_t, nlcd == 52))
+)
+ref_area <- purrr::map_dbl(ref_variants, \(r) {
+  r |>
+    filter(variable == "eemetric", month == as.Date("2025-07-01")) |>
+    summarise(sum(n_pixels) * 900 / 1e6) |>
+    pull()
+})
+
+season_ref <- function(r) {
+  r |>
+    filter(variable %in% eta_models, as.integer(format(month, "%m")) %in% season,
+           elev_band >= 1700, elev_band <= 2800) |>
+    mutate(iy = irr_year(month)) |>
+    group_by(variable, iy, elev_band) |>
+    summarise(et_mm = sum(et_mm), n_pixels = min(n_pixels), .groups = "drop")
+}
+ref_season <- season_ref(ref)
+
+field_season <- w |>
+  filter(as.integer(format(month, "%m")) %in% season) |>
+  mutate(iy = irr_year(month)) |>
+  pivot_longer(all_of(eta_models), names_to = "variable", values_to = "et_mm") |>
+  group_by(field_id, iy, variable) |>
+  summarise(et_mm = sum(et_mm), .groups = "drop") |>
+  left_join(elev, by = "field_id") |>
+  left_join(status, by = c("field_id", "iy"))
+
+ref_lines <- purrr::imap(ref_variants[c(1, 2, 6)], \(r, name) season_ref(r) |> mutate(mask = name)) |>
+  bind_rows() |>
+  filter(variable == "eemetric", n_pixels >= 300)
+ggplot() +
+  geom_point(data = filter(field_season, irrigated, variable == "eemetric"), aes(elev_m, et_mm),
+             alpha = 0.2, color = "grey50") +
+  geom_line(data = ref_lines, aes(elev_band + 50, et_mm, color = mask), linewidth = 1) +
+  scale_color_viridis_d(end = 0.9) +
+  facet_wrap(~iy) +
+  labs(x = "Elevation (m)", y = "May to September ET (mm)", color = "Reference",
+       title = "Irrigated fields (points) vs non-irrigated reference (lines), eeMETRIC")
+```
+
+The tight mask keeps about `r fmt(ref_area[["Tight mask (Jul and Aug EToF > 0.6)"]])` km² of the original `r fmt(ref_area[["Original mask"]])` km². It is almost all shrubland; grassland covers about `r fmt(ref_area[["Tight, grassland only"]], 1)` km². Irrigated fields run above the reference at every elevation, but the gap narrows with height.
+
+### Water balance closure
+
+Native land with no irrigation should not evaporate more than it receives over a year, unless water arrives from elsewhere or it draws down storage.
+
+```{r closure}
+months_avail <- wy_months[irr_year(wy_months) >= 2025]
+p_band <- wx |>
+  mutate(iy = irr_year(date)) |>
+  filter(iy >= 2025) |>
+  group_by(cell_id, iy) |>
+  summarise(p_mm = sum(prcp_mm), .groups = "drop") |>
+  inner_join(cells, by = "cell_id", relationship = "many-to-many") |>
+  inner_join(elev, by = "field_id") |>
+  mutate(elev_band = floor(elev_m / 100) * 100) |>
+  group_by(iy, elev_band) |>
+  summarise(p_mm = mean(p_mm), .groups = "drop")
+closure <- ref |>
+  filter(variable == "eemetric", month %in% months_avail) |>
+  mutate(iy = irr_year(month)) |>
+  group_by(iy, elev_band) |>
+  summarise(ref_et_mm = sum(et_mm), n_pixels = min(n_pixels), .groups = "drop") |>
+  filter(n_pixels >= 500) |>
+  inner_join(p_band, by = c("iy", "elev_band")) |>
+  mutate(ratio = ref_et_mm / p_mm)
+field_winter <- w |>
+  mutate(iy = irr_year(month), m = as.integer(format(month, "%m"))) |>
+  filter(iy >= 2025, m %in% c(11:12, 1:4)) |>
+  group_by(field_id, iy) |>
+  summarise(eta_mm = sum(eemetric), .groups = "drop") |>
+  inner_join(
+    wx |>
+      mutate(iy = irr_year(date), m = as.integer(format(date, "%m"))) |>
+      filter(iy >= 2025) |>
+      group_by(cell_id, iy) |>
+      summarise(p_all = sum(prcp_mm), p_winter = sum(prcp_mm[m %in% c(11:12, 1:4)]), .groups = "drop") |>
+      inner_join(cells, by = "cell_id", relationship = "many-to-many"),
+    by = c("field_id", "iy")
+  ) |>
+  group_by(iy) |>
+  summarise(eta_mm = mean(eta_mm), p_winter = mean(p_winter), p_all = mean(p_all))
+closure |>
+  mutate(iy = as.character(iy)) |>
+  select(iy, elev_band, ref_et_mm, p_mm, ratio) |>
+  knitr::kable(digits = 2, col.names = c("Irrigation year", "Elevation band (m)", "Reference eeMETRIC ETa (mm)",
+                                         "gridMET precipitation at fields (mm)", "ETa / P"),
+               caption = "Reference land closure by elevation band (2026 is November to September)")
+```
+
+Reference ETa exceeds precipitation in `r sum(closure$ratio > 1)` of `r nrow(closure)` band-years, by up to `r fmt(100 * (max(closure$ratio) - 1))`%. Only the highest band, with few fields to set its precipitation, falls below. On the fields themselves, November to April eeMETRIC ETa averages `r fmt(field_winter$eta_mm[1])` and `r fmt(field_winter$eta_mm[2])` mm against `r fmt(field_winter$p_all[1])` and `r fmt(field_winter$p_all[2])` mm of precipitation for the whole year. Precipitation was checked above and is not the likely cause. So either native land gets water from beyond its own precipitation (runon from slopes above, shallow groundwater, deeper soil water carried over from earlier years), or eeMETRIC runs high on shrubland and in the shoulder seasons, as OWRD found on dry rangeland [@owrd2025]. Both years were dry, which makes carryover from earlier years plausible.
+
+The two explanations push the results in different directions. If eeMETRIC is high on native land, Method B's baseline is too high and B is too low. If spring ETa on fields is also high, the balance uses up stored snowmelt too early and Method A is somewhat high (the March and April sensitivity above). If native land is drawing on groundwater, the baseline is right for Method B's question but is not a precipitation-only baseline.
+
+```{r fallow-check}
+fallow_check <- field_season |>
+  filter(variable == "eemetric", !irrigated, !shorted) |>
+  mutate(band = floor(elev_m / 100) * 100) |>
+  left_join(filter(ref_season, variable == "eemetric") |> select(iy, band = elev_band, ref_mm = et_mm),
+            by = c("iy", "band")) |>
+  group_by(iy = as.character(iy)) |>
+  summarise(fields = n(), fallow_eta_mm = mean(et_mm), reference_mm = mean(ref_mm, na.rm = TRUE))
+knitr::kable(fallow_check, digits = 0,
+             caption = "Same-soil check: May to September eeMETRIC ETa on CDSS fields classed fallow vs the tight reference at their elevation")
+```
+
+Fields classed fallow under the relative rule are mapped hay land that stayed dry through the summer, so they are a same-soil test of the baseline. Their May to September ETa (`r fmt(fallow_check$fallow_eta_mm[1])` and `r fmt(fallow_check$fallow_eta_mm[2])` mm) sits within about 10% of the reference at their elevations (`r fmt(fallow_check$reference_mm[1])` and `r fmt(fallow_check$reference_mm[2])` mm). Dried-up meadow behaves like the native shrub baseline, which supports using it for Method B. It also means the closure gap affects fallow fields too, so it is not just a property of upland shrub.
+
+### Results
+
+```{r method-b}
+cu_b <- purrr::map(eta_models, \(v) {
+  fref <- field_reference(filter(ref, variable == v), elev)
+  cu_method_b(eta_of(v), fref) |> mutate(eta = v)
+}) |>
+  bind_rows()
+res_b <- summarise_cu(cu_b, "B: depletion above native baseline") |>
+  mutate(net_cu_af = NA_real_)
+knitr::kable(res_b |> mutate(iy = as.character(iy)) |> select(method, eta, iy, cu_af, cu_mm),
+             digits = 0, format.args = list(big.mark = ","),
+             caption = "Method B, May to September depletion above the native baseline (tight mask)")
+
+b_variants <- purrr::imap(ref_variants, \(r, name) {
+  fref <- field_reference(filter(r, variable == "eemetric"), elev, min_pixels = 300)
+  cu_method_b(eta_of("eemetric"), fref) |>
+    mutate(eta = "eemetric") |>
+    summarise_cu(name)
+}) |>
+  bind_rows() |>
+  select(reference = method, iy, cu_af) |>
+  pivot_wider(names_from = iy, values_from = cu_af, names_prefix = "IY") |>
+  mutate(area_km2 = ref_area[reference])
+knitr::kable(b_variants, digits = c(0, -2, -2, 0), format.args = list(big.mark = ","),
+             col.names = c("Reference", "IY2025 (AF)", "IY2026 (AF)", "Area, July 2025 (km²)"),
+             caption = "Method B (eeMETRIC) by reference mask, May to September (bands need 300 pixels)")
+b_range <- range(unlist(select(b_variants, starts_with("IY"))))
+b_ratio <- res_b |>
+  filter(eta == "eemetric") |>
+  left_join(season_et |> filter(model == "eemetric") |> pivot_longer(-model, names_to = "iy", values_to = "eta_mm") |>
+              mutate(iy = as.integer(sub("IY", "", iy))), by = "iy") |>
+  mutate(ratio = cu_mm / eta_mm)
+```
+
+Across reference masks, Method B ranges from `r fmt(b_range[1], -2)` to `r fmt(b_range[2], -2)` AF. The ditch, creek, and mid-summer exclusions change the shrub baseline only a little, so seep strips were not inflating it much. The grassland-only reference gives the highest depletion. It is small, but the natural counterpart of a valley meadow is arguably wet grass or sedge rather than upland sagebrush. So the grassland row belongs in the range, not in a footnote.
+
+Method B is `r fmt(100 * min(b_ratio$ratio))`% to `r fmt(100 * max(b_ratio$ratio))`% of field ETa. Near Kremmling, full irrigation withdrawal cut May to September eeMETRIC ETa by 53 to 58% [@cabot2022], so the two agree. The Kremmling fields also recovered toward their old ETa within one to two years, partly from ditch seepage and groundwater. A dried-up field's depletion saving shrinks over time.
+
+## Comparison
+
+Both methods measure water consumed as ET. They differ in the baseline subtracted, so they answer different questions.
+
+-   **Method A is accounting consumptive use**: irrigation water consumed after removing effective precipitation on the field. It is consistent in definition with Reclamation's CU&L reports and with the CU concept in Colorado historical consumptive use analyses. It is not a historical consumptive use determination, which is a site-specific engineering analysis over a study period with its own treatment of supply shortage, subirrigation, and return flows. Near Kremmling, the same quantity (eeMETRIC ETa minus StateCU TR-21 effective precipitation) averaged 516 mm from May to September over 2016 to 2022 [@cabot2022].
+-   **Method B is depletion above the native baseline**: how much more water the field consumes than the same land would without irrigation. The baseline includes water that never counts as effective precipitation on a field: deeper soil moisture reached by sagebrush roots, shallow groundwater, and runon. B is the right quantity for basin depletion against natural conditions and for dry-up scenarios.
+
+B is not a competing estimate of A. For accounting it over-credits precipitation, because rainfed land keeps more of its precipitation than wet irrigated soil, which drains more of it. Part of the gap between them is also the reference not matching meadow soils and positions.
+
+```{r cross-check}
+kc_cu <- pe |>
+  transmute(field_id, month, cu_mm = etc_mm - pe_mm, eta = "Kc x ETo")
+kc_check <- summarise_cu(kc_cu, "Cross-check: NIWR (Kc x ETo minus Pe)") |>
+  mutate(net_cu_af = NA_real_)
+
+irr_acres <- field_year_a |>
+  group_by(iy) |>
+  summarise(irr_acres = sum(acres[irrigated | shorted]))
+tidy_comp <- function(...) {
+  bind_rows(...) |>
+    filter(iy >= 2025) |>
+    left_join(irr_acres, by = "iy") |>
+    transmute(method, eta, iy = as.character(iy), cu_af, af_per_ac = cu_af / irr_acres, net_cu_af) |>
+    arrange(iy, method, eta)
+}
+comp <- tidy_comp(bind_rows(res_d), res_a, res_b, kc_check)
+comp_cols <- c("Method", "ETa source", "Irrigation year", "CU (AF)", "CU (AF per irrigated or shorted acre)",
+               "Net CU with incidental use (AF)")
+knitr::kable(mutate(comp, across(c(cu_af, net_cu_af), \(x) round(x, -2))),
+             digits = 2, format.args = list(big.mark = ","), col.names = comp_cols,
+             caption = "Roaring Fork irrigation consumptive use and depletion, May to September")
+```
+
+```{r irrigation-year}
+comp_iy <- tidy_comp(
+  bind_rows(purrr::imap(shares, \(label, sh) summarise_cu(filter(cu_d, share == sh), label, iy_months_all))),
+  summarise_cu(cu_a, "A: monthly, Reclamation style", iy_months_all),
+  summarise_cu(cu_b, "B: depletion above native baseline", iy_months_all) |> mutate(net_cu_af = NA_real_)
+) |>
+  filter(eta == "eemetric")
+knitr::kable(mutate(comp_iy, across(c(cu_af, net_cu_af), \(x) round(x, -2))),
+             digits = 2, format.args = list(big.mark = ","), col.names = comp_cols,
+             caption = "Full irrigation year (November to October; 2026 ends September 30), eeMETRIC")
+```
+
+The irrigation-year totals include April and October, when ditches run, and match Reclamation's annual CU&L year. Winter OpenET months have few clear Landsat scenes and some filled values, so treat the non-growing-season months as rough.
+
+```{r land-class}
+by_class <- purrr::map(c("agricultural", "turf"), \(cl) {
+  fy <- field_year_a |>
+    left_join(st_drop_geometry(fields) |> select(field_id, land_class), by = "field_id") |>
+    filter(land_class == cl)
+  summarise_cu(filter(cu_head, field_id %in% fy$field_id), cl, fy = fy) |>
+    left_join(fy |> group_by(iy) |> summarise(acres = sum(acres[irrigated | shorted])), by = "iy")
+}) |>
+  bind_rows() |>
+  transmute(land_class = method, iy = as.character(iy), acres, cu_af, af_per_ac = cu_af / acres)
+knitr::kable(by_class, digits = c(0, 0, 0, -1, 2), format.args = list(big.mark = ","),
+             col.names = c("Land class", "Irrigation year", "Irrigated or shorted acres", "CU (AF)", "AF per acre"),
+             caption = "Method A (eeMETRIC, CU&L convention), May to September, agriculture vs turf")
+```
+
+```{r findings}
+pick <- function(m, e, y) comp$cu_af[startsWith(comp$method, m) & comp$eta == e & comp$iy == y]
+apa <- function(m, e, y) comp$af_per_ac[startsWith(comp$method, m) & comp$eta == e & comp$iy == y]
+turf26 <- by_class$cu_af[by_class$land_class == "turf" & by_class$iy == "2026"]
+```
+
+For irrigation year 2026 (May to September, eeMETRIC), Method A gives about `r fmt(pick("A: daily balance, CU", "eemetric", "2026"), -2)` AF of consumptive use from irrigation and in-season shallow groundwater (`r fmt(apa("A: daily balance, CU", "eemetric", "2026"), 2)` AF per irrigated or shorted acre), under the CU&L convention. The mixed and precipitation-first rules give `r fmt(pick("A: daily balance, m", "eemetric", "2026"), -2)` and `r fmt(pick("A: daily balance, p", "eemetric", "2026"), -2)` AF. About `r fmt(turf26, -1)` AF of the total is turf. The Reclamation-style monthly form gives `r fmt(pick("A: monthly", "eemetric", "2026"), -2)` AF because it drops stored snowmelt. Depletion above the native baseline (Method B) is about `r fmt(pick("B", "eemetric", "2026"), -2)` AF (`r fmt(apa("B", "eemetric", "2026"), 2)` AF per acre). SSEBop and geeSEBAL give lower values for both methods. The ETa model is the largest uncertainty, and none of the models has been validated on Roaring Fork fields or natural land.
+
+The NIWR row (Kc × ETo minus effective precipitation) is a loose upper bound: what a full-supply crop would need with no cuttings and no late-season shutoff.
+
+Net CU adds Reclamation's incidental use for this HUC8: 18.9%, the Colorado main stem rate in the 1976 to 1980 technical appendix. It covers ditch evaporation and phreatophytes along canals [@reclamation2025]. It is applied only to Method A, the quantity it was built for. Method B's reference probably already contains some ditch seepage, and incidental use scales with diversion, not with depletion above a baseline. Reclamation notes that the survey behind these percentages was never found, so treat this add-on as a convention, not a measurement.
+
+```{r comparison-plot, fig.height = 4}
+monthly_cu <- bind_rows(
+  cu_head |> mutate(method = shares[["cul"]]),
+  cu_a |> mutate(method = "A: monthly, Reclamation style"),
+  cu_b |> mutate(method = "B: depletion above native baseline")
+) |>
+  filter(eta == "eemetric", as.integer(format(month, "%m")) %in% 4:10) |>
+  mutate(iy = irr_year(month)) |>
+  left_join(field_year_a, by = c("field_id", "iy")) |>
+  filter(irrigated) |>
+  group_by(method, month) |>
+  summarise(cu_af = sum(mm_to_af(cu_mm, acres)), .groups = "drop")
+
+ggplot(monthly_cu, aes(month, cu_af, color = method)) +
+  geom_line(linewidth = 0.9) +
+  geom_point() +
+  scale_color_viridis_d(end = 0.8) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(x = NULL, y = "Acre-feet per month", color = NULL,
+       title = "Monthly irrigation consumptive use, fully irrigated fields (eeMETRIC)",
+       subtitle = "Monthly values are not floored at zero; the tables floor each field's period total.")
+```
+
+```{r cu-map}
+cu_field <- cu_head |>
+  cu_period(field_year_a, wet, season) |>
+  filter(iy == 2026)
+map_df <- fields_ll |>
+  left_join(cu_field, by = "field_id")
+pal_cu <- colorNumeric(viridisLite::viridis(256), map_df$cu_mm, na.color = "grey")
+leaflet(map_df) |>
+  addProviderTiles(providers$Esri.WorldGrayCanvas) |>
+  addPolygons(fillColor = ~pal_cu(cu_mm), color = "#333", weight = 0.5, fillOpacity = 0.85,
+              label = ~sprintf("%s, %s: %.0f mm, %.0f AF", land_class, crop, cu_mm, cu_af)) |>
+  addLegend(pal = pal_cu, values = ~cu_mm, title = "IY2026 May-Sep CU (mm)<br>Method A, eeMETRIC")
+```
+
+```{r export}
+niwr <- bind_rows(
+  kc_cu |> cu_period(field_year_a, wet, season) |> mutate(period = "may_sep"),
+  kc_cu |> cu_period(field_year_a, wet, iy_months_all) |> mutate(period = "irrigation_year")
+) |>
+  select(field_id, iy, period, niwr_mm = cu_mm)
+cu_export <- list(
+  A_daily_cul = filter(cu_d, share == "cul"),
+  A_daily_mix = filter(cu_d, share == "mix"),
+  A_daily_precip_first = filter(cu_d, share == "precip_first"),
+  A_monthly = cu_a,
+  B = cu_b
+) |>
+  purrr::imap(\(cu, m) {
+    bind_rows(
+      cu |> group_by(eta) |> group_modify(\(x, k) cu_period(x, field_year_a, wet, season)) |> mutate(period = "may_sep"),
+      cu |> group_by(eta) |> group_modify(\(x, k) cu_period(x, field_year_a, wet, iy_months_all)) |>
+        mutate(period = "irrigation_year")
+    ) |>
+      mutate(method = m)
+  }) |>
+  bind_rows() |>
+  ungroup() |>
+  filter(iy >= 2025) |>
+  left_join(niwr, by = c("field_id", "iy", "period")) |>
+  left_join(st_drop_geometry(fields) |> select(field_id, sw_wdid1, land_class), by = "field_id") |>
+  select(field_id, iy, method, eta, period, cu_mm, cu_af, niwr_mm, acres, irrigated, shorted, land_class, sw_wdid1)
+arrow::write_parquet(cu_export, "data/cu_field_wy.parquet")
+```
+
+Field-level results are written to `data/cu_field_wy.parquet` for the diversion and water rights work in `diversions_rights.md`.
+
+### Dashboard tables
+
+Compact tables for the dashboard's irrigation tab go to `data/dashboard/`. `scripts/publish_irrigation.R` copies them to the data root. Monthly CU on shorted fields counts only their wet April to October months, as in `cu_period()`, so the months add up to the irrigation-year totals.
+
+```{r dashboard-export}
+dash <- "data/dashboard"
+dir.create(dash, showWarnings = FALSE)
+put <- \(x, name) arrow::write_parquet(x, file.path(dash, paste0(name, ".parquet")))
+dash_iy <- 2025:2026
+
+fields_ll |>
+  left_join(elev, by = "field_id") |>
+  transmute(field_id, crop, irrig_type, land_class, turf_type, acres, elev_m) |>
+  rmapshaper::ms_simplify(keep = 0.4, keep_shapes = TRUE) |>
+  st_write(file.path(dash, "fields.geojson"), delete_dsn = TRUE, quiet = TRUE)
+
+prcp_month <- wx |>
+  mutate(month = as.Date(format(date, "%Y-%m-01"))) |>
+  group_by(cell_id, month) |>
+  summarise(prcp_mm = sum(prcp_mm), .groups = "drop") |>
+  inner_join(cells, by = "cell_id", relationship = "many-to-many") |>
+  select(field_id, month, prcp_mm)
+field_month <- cu_head |>
+  mutate(iy = irr_year(month), m = as.integer(format(month, "%m"))) |>
+  filter(iy %in% dash_iy) |>
+  left_join(field_year_a, by = c("field_id", "iy")) |>
+  left_join(wet, by = c("field_id", "month")) |>
+  mutate(cu_mm = if_else(irrigated | (shorted & wet %in% TRUE & m %in% 4:10), cu_mm, 0)) |>
+  transmute(field_id, month, eta_mm, et_p_mm, cu_mm, other_mm = pmax(eta_mm - et_p_mm - cu_mm, 0)) |>
+  left_join(field_reference(filter(ref, variable == "eemetric"), elev) |> select(field_id, month, ref_mm),
+            by = c("field_id", "month")) |>
+  left_join(select(w, field_id, month, eto_mm = eto), by = c("field_id", "month")) |>
+  left_join(prcp_month, by = c("field_id", "month"))
+put(field_month, "cu_field_month")
+
+period_et <- field_month |>
+  mutate(iy = irr_year(month), may_sep = as.integer(format(month, "%m")) %in% season) |>
+  group_by(field_id, iy) |>
+  summarise(across(c(eta_mm, eto_mm, ref_mm, prcp_mm), list(irrigation_year = sum, may_sep = \(x) sum(x[may_sep]))),
+            .groups = "drop") |>
+  pivot_longer(-c(field_id, iy), names_to = c(".value", "period"), names_pattern = "(.*_mm)_(.*)")
+field_iy <- cu_export |>
+  filter(eta == "eemetric", method %in% c("A_daily_cul", "B")) |>
+  select(field_id, iy, method, period, cu_mm, cu_af, niwr_mm) |>
+  pivot_wider(names_from = method, values_from = c(cu_mm, cu_af, niwr_mm)) |>
+  transmute(field_id, iy, period, cu_mm = cu_mm_A_daily_cul, cu_af = cu_af_A_daily_cul,
+            depletion_mm = cu_mm_B, depletion_af = cu_af_B, niwr_mm = niwr_mm_A_daily_cul) |>
+  left_join(field_year |> transmute(field_id, iy, status = case_when(irrigated ~ "irrigated", shorted ~ "shorted",
+                                                                     .default = "fallow")),
+            by = c("field_id", "iy")) |>
+  left_join(period_et, by = c("field_id", "iy", "period"))
+check <- field_iy |> filter(period == "irrigation_year") |> group_by(iy) |> summarise(cu_af = sum(cu_af)) |>
+  inner_join(field_month |> left_join(select(fields_ll, field_id, acres) |> st_drop_geometry(), by = "field_id") |>
+               group_by(iy = irr_year(month)) |> summarise(month_af = sum(mm_to_af(cu_mm, acres))), by = "iy")
+stopifnot(all(abs(check$month_af / check$cu_af - 1) < 0.01))
+put(field_iy, "cu_field_iy")
+
+summary_all <- purrr::imap(list(may_sep = season, irrigation_year = iy_months_all), \(mo, p) {
+  tidy_comp(
+    bind_rows(purrr::imap(shares, \(label, sh) summarise_cu(filter(cu_d, share == sh), label, mo))),
+    summarise_cu(cu_a, "A: monthly, Reclamation style", mo),
+    summarise_cu(cu_b, "B: depletion above native baseline", mo) |> mutate(net_cu_af = NA_real_),
+    summarise_cu(kc_cu, "Cross-check: NIWR (Kc x ETo minus Pe)", mo) |> mutate(net_cu_af = NA_real_)
+  ) |>
+    mutate(period = p)
+}) |>
+  bind_rows()
+put(summary_all, "cu_summary")
+put(sens_tbl, "cu_sensitivity")
+put(season_et, "cu_et_models")
+put(b_variants, "cu_reference_masks")
+put(gw_tbl, "cu_groundwater_flags")
+put(by_class, "cu_land_class")
+
+fig_dir <- file.path(dash, "figures")
+dir.create(fig_dir, showWarnings = FALSE)
+save_fig <- \(p, name, h = 4.2) ggsave(file.path(fig_dir, paste0(name, ".png")), p, width = 8, height = h, dpi = 150, bg = "white")
+model_labels <- c(eemetric = "eeMETRIC", ssebop = "SSEBop", geesebal = "geeSEBAL", ptjpl = "PT-JPL", sims = "SIMS",
+                  disalexi = "DisALEXI", ensemble = "Ensemble")
+p_models <- model_month |>
+  filter(model != "eto", month >= as.Date("2024-11-01")) |>
+  mutate(model = factor(model_labels[model], model_labels)) |>
+  ggplot(aes(month, et_mm, color = model)) +
+  geom_line(data = filter(model_month, model == "eto", month >= as.Date("2024-11-01")), color = "grey55",
+            linetype = "dashed", linewidth = 0.6) +
+  geom_line(linewidth = 0.8) +
+  scale_color_viridis_d(end = 0.92) +
+  labs(x = NULL, y = "ET (mm per month)", color = NULL,
+       title = "Mean ETa over the fields, six OpenET models and the ensemble",
+       subtitle = "Dashed grey: grass reference ET (ETo)")
+save_fig(p_models, "cu-et-models")
+p_ref <- ggplot() +
+  geom_point(data = filter(field_season, irrigated, variable == "eemetric"), aes(elev_m, et_mm),
+             alpha = 0.25, color = "grey45", size = 1) +
+  geom_line(data = ref_lines, aes(elev_band + 50, et_mm, color = mask), linewidth = 1) +
+  scale_color_viridis_d(end = 0.85) +
+  facet_wrap(~ paste("Irrigation year", iy)) +
+  labs(x = "Elevation (m)", y = "May to September ETa (mm)", color = "Native reference",
+       title = "Irrigated fields (points) against native land at the same elevation, eeMETRIC") +
+  theme(legend.position = "bottom")
+save_fig(p_ref, "cu-reference-elevation", 4.6)
+p_src <- field_month |>
+  mutate(iy = irr_year(month)) |>
+  left_join(field_iy |> filter(period == "irrigation_year") |> select(field_id, iy, status), by = c("field_id", "iy")) |>
+  filter(status != "fallow") |>
+  left_join(st_drop_geometry(fields) |> select(field_id, acres), by = "field_id") |>
+  group_by(month) |>
+  summarise(Precipitation = weighted.mean(et_p_mm, acres), Irrigation = weighted.mean(cu_mm, acres),
+            `Other sources` = weighted.mean(other_mm, acres), `Native land` = weighted.mean(ref_mm, acres)) |>
+  pivot_longer(c(Precipitation, Irrigation, `Other sources`), names_to = "source", values_to = "mm") |>
+  mutate(source = factor(source, c("Other sources", "Precipitation", "Irrigation"))) |>
+  ggplot(aes(month, mm)) +
+  geom_col(aes(fill = source), width = 25) +
+  geom_line(aes(y = `Native land`, linetype = "Native land"), data = \(d) distinct(d, month, `Native land`)) +
+  scale_fill_manual(values = c(Precipitation = "#3487A6", Irrigation = "#F78311", `Other sources` = "#9AA5B1")) +
+  scale_linetype_manual(values = "dashed") +
+  labs(x = NULL, y = "ETa (mm per month)", fill = "Water source", linetype = NULL,
+       title = "Where field ETa came from, irrigated and shorted fields (acre-weighted mean)")
+save_fig(p_src, "cu-water-sources")
+```
+
+## Limitations
+
+-   **Closure.** Native reference ETa exceeds precipitation in both years. Until that is explained, Method B's baseline and the spring end of Method A carry an unquantified bias (see Water balance closure).
+-   **Daily ETa is disaggregated.** Monthly OpenET ETa is spread over days by ETo, so the daily balance sees no within-month drydown or irrigation timing. Monthly and seasonal totals are what it supports.
+-   **Irrigation follows demand inside the window.** The balance supplies irrigation whenever ETa exceeds root-zone water while the ditches run. It cannot tell irrigation from shallow groundwater or subirrigation, which Method A therefore counts as irrigation use (see Likely groundwater-supported use).
+-   **Ditch windows are monthly and per ditch.** A field is open for the whole first and last month, and every field on a ditch shares one window. Fields on ditches with no records use the modeled season.
+-   **Reference land is not hay meadow.** Grass and shrub on benches and valley sides differ from flat meadows in soils, rooting, aspect, and snow. OpenET is less accurate on natural vegetation [@volk2024; @owrd2025] and has not been validated on these sites. Slopes are under 10°, so aspect is not split out.
+-   **Status uses field-mean EToF.** Reclamation classifies pixels and takes the majority. A field half dried up can still read as irrigated here.
+-   **Winter effective precipitation.** The snow model is a degree-day bucket with no frozen-soil runoff, and curve number runoff is almost never triggered. Sublimation is taken from the snowpack only when OpenET reports winter ETa.
+-   **Crop curve and labels.** Hay cuttings and the August 1 shutoff on flood-irrigated meadows are not modeled in the Kc curve, which matters for the NIWR cross-check and the spin-up year only. About `r fmt(100 * sum(fields$acres[fields$crop == "alfalfa"]) / sum(fields$acres))`% of acres are labeled alfalfa, probably too many, which sets root depth.
+-   **Edge pixels.** A 30 m inward buffer does not remove mixing from Landsat's 100 m thermal pixels.
+-   **Field map year.** Fields are from 2023. Development since then, and irrigated land not in the map, are missed.
+-   **Provisional data.** Every OpenET month used here is flagged provisional and may change, and most 2025 and 2026 diversion records are provisional.
+-   **ETa model spread.** Over these fields the six OpenET models differ by a factor of about `r fmt(spread[["IY2025"]], 1)` (2025) and `r fmt(spread[["IY2026"]], 1)` (2026). This is the largest single uncertainty.
+
+## Next steps
+
+-   Explain the closure gap: check valley-floor COOP gauges (Aspen, Glenwood Springs, Ruedi Dam) and compare eeMETRIC on native land with SSEBop and with flux data where available.
+-   Compare with Reclamation's published Net CU for 14010004 (Pearson et al. 2024 data or the 2025 CU&L update) and with StateCU for District 38.
+-   Add October 2026 when OpenET publishes it.
+-   Classify irrigation status by pixel majority, or with HLS NDVI as Reclamation does from 2016 on.
+-   Check crop labels against NAIP imagery for a sample of fields labeled alfalfa.
+
+## References
+
+::: {#refs}
+:::

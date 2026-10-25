@@ -1,0 +1,53 @@
+/* Irrigation tab and Methods tab */
+.irr-page { max-width: 1400px; margin: 0 auto; padding: 0.5rem 0 2rem; }
+.irr-head { display: flex; flex-wrap: wrap; gap: 1rem 2.5rem; align-items: flex-end;
+            justify-content: space-between; margin-bottom: 1rem; }
+.irr-head > div:first-child { max-width: 760px; }
+.irr-kicker { font-size: 0.8rem; letter-spacing: 0.14em; text-transform: uppercase;
+              color: #B35806; font-weight: 600; }
+.irr-head h2, .irr-section, .methods-doc h1 { font-family: "Fraunces", Georgia, serif; font-weight: 600; }
+.irr-head h2 { font-size: clamp(1.8rem, 3vw, 2.4rem); margin: 0.2rem 0 0.4rem; }
+.irr-lede { font-size: 1.05rem; line-height: 1.5; color: var(--bs-secondary-color); margin: 0; }
+.irr-controls .form-group { margin-bottom: 0.3rem; }
+.irr-controls .control-label { font-size: 0.8rem; font-weight: 600; margin-bottom: 0; }
+.irr-boxes { margin-bottom: 1rem; }
+.irr-boxes .value-box-title { font-size: 0.9rem; }
+.irr-boxes .value-box-value { font-size: 1.9rem; }
+.irr-boxes p { font-size: 0.85rem; line-height: 1.35; margin-bottom: 0; }
+[data-bs-theme=dark] .irr-boxes .bslib-value-box { background: var(--bs-card-bg) !important;
+                                                    color: var(--bs-body-color) !important; }
+.irr-section { font-size: 1.45rem; margin: 1.6rem 0 0.8rem; }
+.irr-card-head { display: flex; align-items: center; justify-content: space-between;
+                 flex-wrap: wrap; gap: 0.5rem; }
+.irr-head-input .form-group, .irr-head-input .shiny-input-container { margin-bottom: 0; }
+.irr-head-input .form-select { font-size: 0.85rem; padding-top: 0.2rem; padding-bottom: 0.2rem; }
+.irr-head-input .radio-inline, .irr-head-input .form-check-inline { font-size: 0.85rem; }
+.irr-info { margin-left: 0.35rem; color: var(--bs-secondary-color); cursor: pointer;
+            vertical-align: -0.1em; }
+.irr-note { font-size: 0.82rem; color: var(--bs-secondary-color); line-height: 1.4; }
+.card-footer.irr-note { padding: 0.4rem 0.9rem; }
+.irr-detail { font-size: 0.92rem; margin-bottom: 0.3rem; }
+.irr-facts { display: flex; flex-wrap: wrap; gap: 0.3rem 0.5rem; margin-bottom: 0.5rem; }
+.irr-facts span { background: var(--bs-tertiary-bg); border-radius: 999px; padding: 0.1rem 0.6rem;
+                  font-size: 0.8rem; }
+.irr-stats { display: flex; flex-direction: column; gap: 1rem; padding-top: 0.5rem; }
+.irr-stat-num { font-family: "Fraunces", Georgia, serif; font-size: 1.9rem; font-weight: 600;
+                line-height: 1; }
+.irr-stat-label { font-size: 0.82rem; color: var(--bs-secondary-color); line-height: 1.3; }
+.irr-foot { margin-top: 1.5rem; font-size: 0.82rem; color: var(--bs-secondary-color); max-width: 900px; }
+a.methods-link { white-space: nowrap; }
+a.methods-link::after { content: " \2192"; }
+
+.methods-page { max-width: 1250px; margin: 0 auto; padding: 1rem 0 3rem; }
+.methods-page .nav-pills .nav-link { font-size: 0.92rem; padding: 0.4rem 0.8rem; }
+.methods-page .nav-stacked, .methods-page .nav-pills { position: sticky; top: 1rem; }
+.methods-doc { max-width: 780px; font-size: 1rem; line-height: 1.65; }
+.methods-doc h1 { font-size: 2rem; margin-bottom: 1rem; }
+.methods-doc h2 { font-size: 1.35rem; margin-top: 2.2rem; padding-top: 0.5rem;
+                  border-top: 1px solid var(--bs-border-color); scroll-margin-top: 1rem; }
+.methods-doc h3 { font-size: 1.1rem; margin-top: 1.6rem; scroll-margin-top: 1rem; }
+.methods-doc table { font-size: 0.88rem; }
+.methods-doc img { max-width: 100%; border-radius: 6px; margin: 0.5rem 0; }
+.methods-doc blockquote { border-left: 3px solid var(--bs-border-color); padding-left: 1rem;
+                          color: var(--bs-secondary-color); }
+.methods-doc code { font-size: 0.85em; }

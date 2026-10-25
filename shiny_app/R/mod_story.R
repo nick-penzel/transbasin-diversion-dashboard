@@ -125,9 +125,9 @@ story_ui <- function(id, years) {
                                     plain_status$plain[plain_status$class == k])
                         })),
                tags$p(class = "caption",
-                      "Dots are river gages, compared with the same day in every year",
-                      "since 1990. River colors between gages are estimated from the",
-                      "nearest gages up and downstream.")),
+                      "Dots are river gauges, compared with the same day in every year",
+                      "since 1990. River colors between gauges are estimated from the",
+                      "nearest gauges up and downstream.")),
       tags$div(class = "gage-detail",
                tags$div(class = "gage-card", uiOutput(ns("gage_card"))),
                tags$div(plotlyOutput(ns("gage_plot"), height = "320px"))),
@@ -143,7 +143,7 @@ story_ui <- function(id, years) {
                        "Survey, U.S. Bureau of Reclamation, and gridMET (University of",
                        "California Merced). River lines from NHDPlus. Numbers update daily;",
                        "recent months use provisional data that can change."),
-                tags$p("Totals are approximate. Outflow is measured at the main gage",
+                tags$p("Totals are approximate. Outflow is measured at the main gauge",
                        "where each river leaves the state, and precipitation covers the",
                        "eight major river basins."))
   )
@@ -166,7 +166,7 @@ story_server <- function(id, story, rivers, reaches, basins, structures, outlets
                                           tags$div(class = "txt", text))
       tags$div(class = "today-inner",
                tags$div(class = "today-label", "Today", tags$br(), format(Sys.Date(), "%b %d")),
-               stat(sprintf("%d of %d", g$low, g$n), "river gages running lower than usual"),
+               stat(sprintf("%d of %d", g$low, g$n), "river gauges running lower than usual"),
                stat(sprintf("%.0f%%", st$pct),
                     sprintf("full, major reservoirs (usually %.0f%% now)", st$usual_pct)),
                stat(sprintf("Day %d", day), sprintf("of water year %d", wy)))
@@ -332,7 +332,7 @@ story_server <- function(id, story, rivers, reaches, basins, structures, outlets
       late <- filter(story$shift, early_from > 1991)
       tags$p(class = "caption",
              "Date by which half of each basin's yearly river flow has left the state,",
-             "averaged over each period at the main gage where the river leaves.",
+             "averaged over each period at the main gauge where the river leaves.",
              if (nrow(late) > 0)
                sprintf("The %s record starts in %d.", paste(late$basin, collapse = " and "),
                        min(late$early_from)))
@@ -377,7 +377,7 @@ story_server <- function(id, story, rivers, reaches, basins, structures, outlets
       g <- gage_summary(story$gages)
       tagList(
         tags$p(class = "big",
-               sprintf("Of %d river gages across the state, %d are running lower than usual for the date and %d higher.",
+               sprintf("Of %d river gauges across the state, %d are running lower than usual for the date and %d higher.",
                        g$n, g$low, g$high)),
         tags$p("Click any dot on the map to see how that river has run over the past",
                "year compared with normal.")
