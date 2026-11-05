@@ -61,6 +61,8 @@ jobs:
             any::lubridate
             any::readr
             any::arrow
+            any::jsonlite
+            any::sf
 
       - name: Write API key file
         run: echo "$CDSS_API_KEY" > scripts/api_key.txt
@@ -86,3 +88,6 @@ jobs:
 
       - name: Water rights
         run: Rscript scripts/build_water_rights.R
+
+      - name: App snapshot
+        run: Rscript scripts/build_app_snapshot.R

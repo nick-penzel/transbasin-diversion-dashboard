@@ -66,6 +66,7 @@ jobs:
             any::lubridate
             any::readr
             any::arrow
+            any::jsonlite
             any::dataRetrieval
             any::sf
             any::terra
@@ -86,3 +87,6 @@ jobs:
 
       - name: Run daily fetch
         run: Rscript scripts/daily_fetch.R ${{ inputs.start_date }} ${{ inputs.end_date }}
+
+      - name: App snapshot
+        run: Rscript scripts/build_app_snapshot.R

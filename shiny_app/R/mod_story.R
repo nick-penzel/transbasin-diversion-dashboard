@@ -11,6 +11,12 @@ chapter <- function(id, num, title, ..., class = NULL) {
                ...)
 }
 
+#' A map that renders once scrolled near (www/story.js sets `<id>_seen`), so
+#' the first screen loads fast and a hidden story never draws it.
+lazy_map <- function(id, height) {
+  tags$div(`data-seen-input` = paste0(id, "_seen"), leafletOutput(id, height = height))
+}
+
 story_ui <- function(id, years) {
   ns <- NS(id)
   toc <- c(`ch-drops` = "A hundred drops", `ch-leaving` = "Out of state",
@@ -58,7 +64,7 @@ story_ui <- function(id, years) {
       "ch-leaving", "02", "Downhill and out of state",
       tags$div(class = "prose wide", uiOutput(ns("leaving_text"))),
       tags$div(class = "figure map-figure",
-               leafletOutput(ns("outflow_map"), height = "560px"),
+               lazy_map(ns("outflow_map"), height = "560px"),
                tags$p(class = "caption",
                       "Circles mark where each river system crosses the state line, sized",
                       "by how much water passed that year. Lines are the larger rivers,",
@@ -74,7 +80,7 @@ story_ui <- function(id, years) {
                       "Population share is approximate, from 2020 Census county totals.")),
       tags$div(class = "figure", uiOutput(ns("tunnels"))),
       tags$div(class = "figure map-figure",
-               leafletOutput(ns("divide_map"), height = "600px"),
+               lazy_map(ns("divide_map"), height = "600px"),
                tags$p(class = "caption",
                       "The dotted line is the Continental Divide. Orange arcs are tunnels",
                       "and ditches carrying West Slope water east, sized by volume that",
@@ -115,7 +121,7 @@ story_ui <- function(id, years) {
       "ch-now", "06", "The rivers right now",
       tags$div(class = "prose wide", uiOutput(ns("now_text"))),
       tags$div(class = "figure map-figure",
-               leafletOutput(ns("now_map"), height = "620px"),
+               lazy_map(ns("now_map"), height = "620px"),
                tags$div(class = "tile-legend",
                         lapply(c("low", "much_below", "below", "normal", "above",
                                  "much_above", "high"), function(k) {
@@ -213,9 +219,12 @@ story_server <- function(id, story, rivers, reaches, basins, structures, outlets
       )
     })
 
+    # Story maps are the same for every visitor, so the rendered widgets are
+    # cached across sessions by year and theme
     output$outflow_map <- renderLeaflet({
       outflow_map(rivers, basins, story$outflow, gages, outlets, yr(), dark())
-    })
+    }) |>
+      bindCache(req(input$outflow_map_seen), yr(), dark())
 
     flows <- reactive(divide_flows(story$transfers, structures, basins, yr()))
 
@@ -243,7 +252,8 @@ story_server <- function(id, story, rivers, reaches, basins, structures, outlets
 
     output$divide_map <- renderLeaflet({
       divide_map(rivers, basins, story$divide, flows(), dark())
-    })
+    }) |>
+      bindCache(req(input$divide_map_seen), yr(), dark())
 
     cameo <- read_ds("streamflow_daily") |>
       filter(id == "USGS-09163500") |>
@@ -384,7 +394,8 @@ story_server <- function(id, story, rivers, reaches, basins, structures, outlets
       )
     })
 
-    output$now_map <- renderLeaflet(now_map(reaches, story$gages, dark()))
+    output$now_map <- renderLeaflet(now_map(reaches, story$gages, dark())) |>
+      bindCache(req(input$now_map_seen), dark())
 
     # Start on the Colorado River at the state line; map clicks change it
     gage_id <- reactiveVal("USGS-09163500")

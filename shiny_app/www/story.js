@@ -7,6 +7,21 @@ $(document).on("shiny:sessioninitialized", function () {
   setTimeout(function () { window.dispatchEvent(new Event("resize")); }, 800);
 });
 
+// Story maps render only once scrolled near (lazy_map() in mod_story.R)
+$(document).on("shiny:sessioninitialized", function () {
+  var els = document.querySelectorAll("[data-seen-input]");
+  var seen = function (el) { Shiny.setInputValue(el.dataset.seenInput, true); };
+  if (!("IntersectionObserver" in window)) { els.forEach(seen); return; }
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      seen(e.target);
+      obs.unobserve(e.target);
+    });
+  }, { rootMargin: "800px 0px" });
+  els.forEach(function (el) { obs.observe(el); });
+});
+
 // Highlight the chapter in view in the side table of contents
 $(document).on("shiny:sessioninitialized", function () {
   var links = document.querySelectorAll(".story-toc a");

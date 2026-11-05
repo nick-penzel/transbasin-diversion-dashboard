@@ -3330,7 +3330,7 @@
   },
   "files": {
     "app.R": {
-      "checksum": "efe6252bb9fd91313411292c73463422"
+      "checksum": "5771834f612e7f82a1e2a2753a4c5f52"
     },
     "data/basins.geojson": {
       "checksum": "ef4d2beff1b26b1dec8c543057f401c3"
@@ -3380,6 +3380,9 @@
     "methods/figures/rights-lorenz.png": {
       "checksum": "75512ced683e4c892ffd42d5f118f591"
     },
+    "R/app_data.R": {
+      "checksum": "c54cee07731d418fb3d245aca7825fe3"
+    },
     "R/flow_idw.R": {
       "checksum": "9b42b2c6d52b6450edc3d6c6d46a7ac2"
     },
@@ -3390,10 +3393,10 @@
       "checksum": "dbd11e2c854419ac6171277b46f4581c"
     },
     "R/hydrograph.R": {
-      "checksum": "f1833c29080faa8d7ae440ffd4202d8f"
+      "checksum": "0db8ad7055f4842419e33efc11b16b82"
     },
     "R/map_legend.R": {
-      "checksum": "3aea59e14409acabe2e35a350a5632d1"
+      "checksum": "c4312fc42ed67b1b4f46f107598238c0"
     },
     "R/mod_basin.R": {
       "checksum": "5c7cc95ac90e4bcd67f5e09b89cf12b9"
@@ -3414,7 +3417,7 @@
       "checksum": "c566b167337302ab5a7f485032cbe23c"
     },
     "R/mod_story.R": {
-      "checksum": "3df514b8bc613f0348ba2f60f19f67db"
+      "checksum": "fb730794e0da4046f5b8b788fef23a56"
     },
     "R/plotly_theme.R": {
       "checksum": "b0aa170c76c43ac8c9819b210e79ca22"
@@ -3426,7 +3429,7 @@
       "checksum": "ba0f877482ab76e53d80f02dda4cf1f4"
     },
     "R/shiny_data_source.R": {
-      "checksum": "a21f2fee2845e0cf3ab705c37682a307"
+      "checksum": "069b60fcb2f570b2d8f0d1c7c7e31dd8"
     },
     "R/snowpack.R": {
       "checksum": "52a464011a2f999d47fa4f00b6572ae5"
@@ -3450,7 +3453,7 @@
       "checksum": "e89af6b32ab019a58505f6847e0b05ad"
     },
     "www/story.js": {
-      "checksum": "d5ee2ee3821061d617078acd7b6aec0c"
+      "checksum": "a7ccc3314d59f766d307b41f6d2ee2f0"
     }
   },
   "users": null

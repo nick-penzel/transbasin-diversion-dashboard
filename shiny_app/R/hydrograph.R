@@ -30,7 +30,7 @@ site_series <- function(type, id) {
                 monthly = NULL))
   }
 
-  records <- if (root_exists("diversions_daily_records")) {
+  records <- if (!is.null(ds_cache[["diversions_daily_records"]])) {
     read_ds("diversions_daily_records") |>
       filter(wdid == !!id) |>
       transmute(x = date, y = discharge_cfs) |>
