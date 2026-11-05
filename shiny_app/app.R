@@ -104,7 +104,8 @@ ui <- page_navbar(
   id = "nav",
   title = "Colorado Water",
   theme = bs_theme(version = 5, preset = "flatly"),
-  fillable = pro_tabs,
+  selected = "Map",
+  fillable = setdiff(pro_tabs, "Map"),
   header = tagList(
   tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap"),
   tags$link(rel = "stylesheet", href = "story.css"),
@@ -128,22 +129,24 @@ ui <- page_navbar(
     .map-legend .lg-grid { display: grid; grid-template-columns: auto auto; column-gap: 12px; }
     .map-legend .sw { display: inline-block; width: 12px; height: 12px;
                       border-radius: 50%; flex: none; }
+    .map-legend .sym { width: 14px; height: 14px; object-fit: contain; flex: none; }
     .map-legend .lg-note { margin-top: 6px; color: #6c757d; max-width: 220px; }
     [data-bs-theme=dark] .map-legend { background: rgba(33,37,41,0.92); color: #e9ecef; }
     [data-bs-theme=dark] .map-legend .sw { box-shadow: 0 0 0 1px rgba(255,255,255,0.35); }
     [data-bs-theme=dark] .leaflet-control-layers { background: #212529; color: #e9ecef; }
     .leaflet-tooltip { font-size: 12px; }
+    .map-tall { height: calc(100vh - 110px); min-height: 560px; }
   "))),
   nav_panel("Colorado's water", value = "story", story_ui("story", story_years)),
   nav_panel("River basins", value = "explore", explore_ui("explore")),
   nav_panel(
     "Map",
     layout_columns(
-      col_widths = c(8, 4),
-      card(full_screen = TRUE, height = "620px",
+      col_widths = c(9, 3),
+      card(full_screen = TRUE, class = "map-tall",
            card_body(padding = 0, leafletOutput("map", height = "100%"))),
       card(
-        height = "620px",
+        class = "map-tall",
         card_header("Details"),
         card_body(fillable = FALSE,
                   uiOutput("info"),
@@ -167,7 +170,8 @@ ui <- page_navbar(
   nav_panel("Irrigation", value = "irrigation", irrigation_ui("irr")),
   nav_panel("Methods", value = "methods", methods_ui(methods_book)),
   nav_spacer(),
-  nav_item(input_switch("pro_view", "Professional view", width = "auto")),
+  nav_item(input_switch("pro_view", "Professional view", value = TRUE,
+                        width = "auto")),
   nav_item(input_dark_mode(id = "dark_mode", mode = "light"))
 )
 
@@ -260,23 +264,21 @@ server <- function(input, output, session) {
                                          "text-transform" = "uppercase",
                                          "color" = "#4a5a70",
                                          "text-shadow" = "0 0 3px rgba(255,255,255,0.9)"))) |>
-      addCircleMarkers(
+      addMarkers(
         data = diversion_points, layerId = ~wdid, group = "Diversions",
-        radius = ~ifelse(is_transbasin == "yes", 4, 3),
-        fillColor = ~ifelse(is_transbasin == "yes", "#6a3d9a", "#9e9e9e"),
-        fillOpacity = 0.9, color = "#ffffff", weight = 1, label = ~name
+        icon = diversion_icons(diversion_points), label = ~name
       ) |>
-      addCircleMarkers(
+      addMarkers(
         data = reservoir_points, layerId = ~wdid, group = "Reservoirs",
-        radius = ~4 + sqrt(capacity) / 90, fillColor = ~color, fillOpacity = 0.85,
-        color = "#1f2d50", weight = 2,
+        icon = reservoir_icons(reservoir_points),
+        options = markerOptions(zIndexOffset = 500),
         label = ~sprintf("%s: %s%% full (%s)", name, round(pct_full),
                          format(date, "%b %d, %Y"))
       ) |>
-      addCircleMarkers(
+      addMarkers(
         data = gage_points, layerId = ~id, group = "Gauges",
-        radius = 5.5, fillColor = ~color, fillOpacity = 1,
-        color = "#ffffff", weight = 1.5, label = ~name
+        icon = gauge_icons(gage_points),
+        options = markerOptions(zIndexOffset = 1000), label = ~name
       ) |>
       addLayersControl(baseGroups = c("Esri light gray", "Esri dark gray", "OpenStreetMap"),
                        overlayGroups = c("Rivers", "Basins", "Gauges", "Reservoirs",
@@ -315,7 +317,9 @@ server <- function(input, output, session) {
                   reservoir = filter(reservoir_points, wdid == site()$id),
                   filter(structures, wdid == site()$id))
     proxy |> addCircleMarkers(data = sel, lng = ~longitude, lat = ~latitude,
-                              group = "highlight", radius = 12,
+                              group = "highlight",
+                              radius = if (site()$type == "reservoir")
+                                pmin(16 + sqrt(sel$capacity) / 70, 36) / 2 + 5 else 13,
                               color = "#f28e2b", fillOpacity = 0, weight = 3)
   })
 
@@ -365,10 +369,10 @@ server <- function(input, output, session) {
   dark <- reactive(identical(input$dark_mode, "dark"))
 
   # ---- Public / professional view ----
-  # ?view=pro opens the professional tabs; the public story is the default
+  # ?view=public opens the public story; the professional tabs are the default
   observe({
     view <- parseQueryString(session$clientData$url_search)$view
-    if (identical(view, "pro")) update_switch("pro_view", value = TRUE)
+    if (identical(view, "public")) update_switch("pro_view", value = FALSE)
   }) |> bindEvent(session$clientData$url_search, once = TRUE)
 
   observeEvent(input$pro_view, {

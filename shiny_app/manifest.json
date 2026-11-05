@@ -3330,7 +3330,7 @@
   },
   "files": {
     "app.R": {
-      "checksum": "9b3e9d8e45b7c76ed6f89fc6bc28eaeb"
+      "checksum": "5771834f612e7f82a1e2a2753a4c5f52"
     },
     "data/basins.geojson": {
       "checksum": "ef4d2beff1b26b1dec8c543057f401c3"
@@ -3396,7 +3396,7 @@
       "checksum": "0db8ad7055f4842419e33efc11b16b82"
     },
     "R/map_legend.R": {
-      "checksum": "3aea59e14409acabe2e35a350a5632d1"
+      "checksum": "c4312fc42ed67b1b4f46f107598238c0"
     },
     "R/mod_basin.R": {
       "checksum": "5c7cc95ac90e4bcd67f5e09b89cf12b9"

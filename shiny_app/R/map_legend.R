@@ -3,9 +3,66 @@
 
 library(htmltools)
 
+#' SVG markup as a data URI for leaflet icons or legend images.
+svg_uri <- function(svg) {
+  paste0("data:image/svg+xml;utf8,", gsub("#", "%23", svg, fixed = TRUE))
+}
+
+#' Gauge symbol: a status-colored disc with a white ring and dark halo.
+gauge_svg <- function(fill, size = 18) {
+  c <- size / 2
+  sprintf(paste0("<svg xmlns='http://www.w3.org/2000/svg' width='%s' height='%s'>",
+                 "<circle cx='%s' cy='%s' r='%s' fill='%s' stroke='white' stroke-width='2'/>",
+                 "<circle cx='%s' cy='%s' r='%s' fill='none' stroke='#1f2d50' stroke-width='1'/>",
+                 "</svg>"),
+          size, size, c, c, c - 2, fill, c, c, c - 0.6)
+}
+
+#' Reservoir symbol: a tank filled to its percent full in the status color.
+reservoir_svg <- function(fill, pct_full, size = 22) {
+  pct <- pmin(pmax(coalesce(pct_full, 0), 0), 100) / 100
+  inner <- size - 6
+  level <- inner * pct
+  sprintf(paste0("<svg xmlns='http://www.w3.org/2000/svg' width='%s' height='%s'>",
+                 "<rect x='2' y='2' width='%s' height='%s' rx='3' fill='white' ",
+                 "stroke='#1f2d50' stroke-width='2'/>",
+                 "<rect x='3' y='%s' width='%s' height='%s' fill='%s'/>",
+                 "</svg>"),
+          size, size, size - 4, size - 4,
+          3 + inner - level, size - 6, level, fill)
+}
+
+#' Diversion symbol: a diamond, purple for transbasin and gray otherwise.
+diversion_svg <- function(transbasin, size = ifelse(transbasin, 16, 12)) {
+  c <- size / 2
+  fill <- ifelse(transbasin, "#6a3d9a", "#8a8a8a")
+  sprintf(paste0("<svg xmlns='http://www.w3.org/2000/svg' width='%s' height='%s'>",
+                 "<rect x='%s' y='%s' width='%s' height='%s' transform='rotate(45 %s %s)' ",
+                 "fill='%s' stroke='white' stroke-width='1.5'/></svg>"),
+          size, size, c * 0.35, c * 0.35, c * 1.3, c * 1.3, c, c, fill)
+}
+
+#' Leaflet icons for the Map tab, one per row of points.
+gauge_icons <- function(pts) {
+  icons(iconUrl = svg_uri(gauge_svg(pts$color)), iconWidth = 18, iconHeight = 18)
+}
+
+reservoir_icons <- function(pts) {
+  size <- round(pmin(16 + sqrt(pts$capacity) / 70, 36))
+  icons(iconUrl = svg_uri(reservoir_svg(pts$color, pts$pct_full, size)),
+        iconWidth = size, iconHeight = size)
+}
+
+diversion_icons <- function(pts) {
+  tb <- pts$is_transbasin == "yes"
+  size <- ifelse(tb, 16, 12)
+  icons(iconUrl = svg_uri(diversion_svg(tb, size)), iconWidth = size, iconHeight = size)
+}
+
 #' Legend HTML for leaflet::addControl().
 map_legend_html <- function(classes = flow_classes) {
   swatch <- function(style) tags$span(class = "sw", style = style)
+  sym <- function(svg) tags$img(src = svg_uri(svg), class = "sym", alt = "")
   row <- function(sym, label) tags$div(class = "row-item", sym, tags$span(label))
 
   tags$div(
@@ -16,15 +73,11 @@ map_legend_html <- function(classes = flow_classes) {
     })),
     tags$div(class = "lg-title mt", "Symbols"),
     tags$div(class = "lg-grid",
-      row(swatch("background:#5fbf6a;border:1.5px solid #fff;box-shadow:0 0 0 1px #555;"),
-          "Gauge"),
-      row(swatch("background:#5fbf6a;border:2px solid #1f2d50;width:14px;height:14px;"),
-          "Reservoir"),
-      row(swatch("background:#6a3d9a;width:8px;height:8px;margin:0 3px;"),
-          "Transbasin div."),
-      row(swatch("background:#9e9e9e;width:8px;height:8px;margin:0 3px;"),
-          "Other diversion")),
-    tags$div(class = "lg-note", "Reservoirs sized by capacity. River colors are estimated from nearby gauges.")
+      row(sym(gauge_svg("#5fbf6a", 14)), "Gauge"),
+      row(sym(reservoir_svg("#5fbf6a", 60, 16)), "Reservoir"),
+      row(sym(diversion_svg(TRUE, 14)), "Transbasin div."),
+      row(sym(diversion_svg(FALSE, 12)), "Other diversion")),
+    tags$div(class = "lg-note", "Reservoirs sized by capacity and filled to percent full. River colors are estimated from nearby gauges.")
   )
 }
 
