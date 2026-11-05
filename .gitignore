@@ -17,3 +17,6 @@ data/*/
 # Irrigation module scratch outputs
 docs/Irrigation/data/
 docs/Irrigation/*.html
+
+# App startup snapshot (scripts/build_app_snapshot.R)
+data/app_snapshot.rds

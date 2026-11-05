@@ -216,6 +216,8 @@ server <- function(input, output, session) {
   observeEvent(input$open_diversion, nav_select("nav", "Diversions"))
 
   # ---- Map ----
+  # Built only from startup data, so one rendered widget serves every session;
+  # dark mode switches basemaps through the proxy below
   output$map <- renderLeaflet({
     # Canvas keeps ~18k reaches fast; tolerance makes thin lines clickable
     m <- leaflet(options = leafletOptions(
@@ -281,7 +283,8 @@ server <- function(input, output, session) {
                                          "Diversions"),
                        options = layersControlOptions(collapsed = FALSE)) |>
       addControl(map_legend_html(), position = "bottomright", className = "")
-  })
+  }) |>
+    bindCache("map")
 
   # Basemap follows the dark mode toggle
   observeEvent(dark(), {
